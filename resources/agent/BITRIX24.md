@@ -257,17 +257,24 @@ Bitrix24::call(string $method, array $params = []): mixed // крайний сл
 | `email` | `?string` | |
 | `login` | `?string` | |
 | `workPosition` | `?string` | |
-| `workPhone` | `?string` | |
-| `mobilePhone` | `?string` | `PERSONAL_MOBILE` |
-| `innerPhone` | `?string` | `UF_PHONE_INNER` |
-| `departmentIds` | `list<int>` | `UF_DEPARTMENT` |
+| `workPhone` | `?string` | `phones.work_phone` / `WORK_PHONE` |
+| `personalPhone` | `?string` | `phones.personal_phone` / `PERSONAL_PHONE` |
+| `mobilePhone` | `?string` | `phones.personal_mobile` |
+| `innerPhone` | `?string` | `phones.inner_phone` / `UF_PHONE_INNER` |
+| `phones` | `array<string,mixed>` | весь объект `phones` из IM |
+| `departmentIds` | `list<int>` | `departments` |
 | `userType` | `UserType` | `employee`, `extranet`, `email`, `unknown` |
 | `timeZone` | `?string` | |
-| `online` | `bool` | `IS_ONLINE === 'Y'` |
-| `lastLoginAt` | `?CarbonImmutable` | |
+| `online` | `bool` | `status === 'online'` |
+| `status` | `?string` | `online`, `dnd`, `away`, `break` |
+| `lastLoginAt` | `?CarbonImmutable` | `LAST_LOGIN` |
+| `lastActivityAt` | `?CarbonImmutable` | `last_activity_date` |
 | `registeredAt` | `?CarbonImmutable` | |
 | `avatarUrl` | `?string` | |
 | `customFields` | `array<string,mixed>` | остальные `UF_*` |
+
+`toArray()` дополнительно содержит raw-алиасы `personal_phone` и
+`last_activity_date` для инструментов, которые работают с исходными именами Bitrix.
 
 ### DepartmentData
 

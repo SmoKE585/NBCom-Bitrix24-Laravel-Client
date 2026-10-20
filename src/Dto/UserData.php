@@ -37,6 +37,9 @@ final readonly class UserData implements JsonSerializable
         public ?string $avatarUrl,
         public array $customFields = [],
         public ?string $status = null,
+        public ?string $personalPhone = null,
+        public array $phones = [],
+        public ?CarbonImmutable $lastActivityAt = null,
     ) {}
 
     /**
@@ -58,6 +61,19 @@ final readonly class UserData implements JsonSerializable
 
         $phones = is_array($data['phones'] ?? null) ? $data['phones'] : [];
         $status = self::string($data['status'] ?? $data['STATUS'] ?? null);
+        $personalPhone = self::string(
+            $data['PERSONAL_PHONE']
+            ?? $data['personalPhone']
+            ?? $data['personal_phone']
+            ?? $phones['personal_phone']
+            ?? null,
+        );
+        $lastActivityAt = self::date(
+            $data['LAST_ACTIVITY_DATE']
+            ?? $data['lastActivityAt']
+            ?? $data['last_activity_date']
+            ?? null,
+        );
 
         return new self(
             id: $id,
@@ -81,6 +97,9 @@ final readonly class UserData implements JsonSerializable
             avatarUrl: self::avatar($data['PERSONAL_PHOTO'] ?? $data['avatarUrl'] ?? $data['avatar_hr'] ?? $data['avatar'] ?? null),
             customFields: self::customFields($data),
             status: $status,
+            personalPhone: $personalPhone,
+            phones: $phones,
+            lastActivityAt: $lastActivityAt,
         );
     }
 
@@ -111,6 +130,12 @@ final readonly class UserData implements JsonSerializable
             'avatarUrl' => $this->avatarUrl,
             'customFields' => $this->customFields,
             'status' => $this->status,
+            'personalPhone' => $this->personalPhone,
+            'phones' => $this->phones,
+            'lastActivityAt' => $this->lastActivityAt?->toIso8601String(),
+            // Raw Bitrix aliases for tools that consume the original field names.
+            'personal_phone' => $this->personalPhone,
+            'last_activity_date' => $this->lastActivityAt?->toIso8601String(),
         ];
     }
 

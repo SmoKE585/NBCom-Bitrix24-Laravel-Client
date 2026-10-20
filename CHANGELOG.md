@@ -3,6 +3,16 @@
 Все заметные изменения пакета. Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии — [SemVer](https://semver.org/lang/ru/).
 
+## [1.4.1] — 2026-10-20
+
+### Added
+
+- `UserData::$personalPhone` из `PERSONAL_PHONE` / `phones.personal_phone`.
+- `UserData::$phones` — сырой объект телефонов из IM.
+- `UserData::$lastActivityAt` из `last_activity_date`.
+- В `toArray()` добавлены raw-алиасы `personal_phone` и `last_activity_date`
+  для инструментов, которые читают исходные имена Bitrix.
+
 ## [1.4.0] — 2026-10-20
 
 ### Added

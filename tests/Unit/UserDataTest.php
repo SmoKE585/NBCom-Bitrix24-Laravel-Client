@@ -71,7 +71,12 @@ final class UserDataTest extends TestCase
             'avatar' => 'https://example.test/avatar.png',
             'departments' => [10],
             'status' => 'online',
-            'phones' => ['personal_mobile' => '+10000000000', 'inner_phone' => '42'],
+            'last_activity_date' => '2026-10-20T12:00:00+03:00',
+            'phones' => [
+                'personal_phone' => '+10000000001',
+                'personal_mobile' => '+10000000000',
+                'inner_phone' => '42',
+            ],
         ]);
 
         self::assertSame('John Smith', $user->fullName);
@@ -79,6 +84,9 @@ final class UserDataTest extends TestCase
         self::assertSame([10], $user->departmentIds);
         self::assertSame('+10000000000', $user->mobilePhone);
         self::assertSame('42', $user->innerPhone);
+        self::assertSame('+10000000001', $user->personalPhone);
+        self::assertSame('+10000000001', $user->phones['personal_phone'] ?? null);
+        self::assertSame('2026-10-20T12:00:00+03:00', $user->lastActivityAt?->toIso8601String());
         self::assertSame('online', $user->status);
         self::assertTrue($user->online);
     }
