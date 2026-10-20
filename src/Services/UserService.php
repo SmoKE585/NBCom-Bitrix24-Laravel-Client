@@ -9,6 +9,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
 use Nbcom\Bitrix24\Contracts\CapabilityGuardInterface;
 use Nbcom\Bitrix24\Contracts\ClientInterface;
+use Nbcom\Bitrix24\Dto\Page;
 use Nbcom\Bitrix24\Dto\UserData;
 use Nbcom\Bitrix24\Enums\Bitrix24ErrorReason;
 use Nbcom\Bitrix24\Exceptions\Bitrix24NotFoundException;
@@ -184,6 +185,56 @@ final class UserService
     /**
      * @return Collection<int, UserData>
      */
+    /**
+     * One page of search results with the total count and the next offset.
+     *
+     * @return Page<UserData>
+     */
+    public function searchPage(
+        string $query,
+        int $limit = 50,
+        int $offset = 0,
+        ?UserFilter $filter = null,
+    ): Page {
+        $query = SearchTerm::normalize($query);
+        $limit = max(1, min(50, $limit));
+        $offset = max(0, $offset);
+
+        if (SearchTerm::tooShort($query)) {
+            return new Page([], 0, null);
+        }
+
+        $filter ??= UserFilter::make()->activeOnly();
+        $this->guard->ensure('im.search.user.list');
+        $body = $this->client->call('im.search.user.list', [
+            'FIND' => $query,
+            'LIMIT' => $limit,
+            'OFFSET' => $offset,
+        ]);
+        $rows = $this->normalizeImRows($body['result'] ?? []);
+        $items = [];
+
+        foreach ($rows as $row) {
+            $user = UserData::fromArray($row);
+
+            if ($user->id > 0 && $this->matchesFilter($user, $filter)) {
+                $items[$user->id] = $user;
+            }
+        }
+
+        $total = isset($body['total']) ? (int) $body['total'] : count($items);
+        $next = isset($body['next']) ? (int) $body['next'] : null;
+
+        if ($next === null && $offset + count($rows) < $total) {
+            $next = $offset + count($rows);
+        }
+
+        return new Page(array_values($items), $total, $next);
+    }
+
+    /**
+     * @return Collection<int, UserData>
+     */
     public function search(string $query, int $limit = 50, ?UserFilter $filter = null): Collection
     {
         $query = SearchTerm::normalize($query);
@@ -208,38 +259,26 @@ final class UserService
         $offset = 0;
 
         while (count($users) < $limit) {
-            $requested = min(50, $limit - count($users));
-            $body = $this->client->call('im.search.user.list', [
-                'FIND' => $query,
-                'LIMIT' => $requested,
-                'OFFSET' => $offset,
-            ]);
-            $rows = $this->normalizeImRows($body['result'] ?? []);
+            $page = $this->searchPage(
+                query: $query,
+                limit: min(50, $limit - count($users)),
+                offset: $offset,
+                filter: $filter,
+            );
 
-            if ($rows === []) {
+            if ($page->items === []) {
                 break;
             }
 
-            $added = 0;
-
-            foreach ($rows as $row) {
-                $user = UserData::fromArray($row);
-
-                if ($user->id <= 0 || ! $this->matchesFilter($user, $filter)) {
-                    continue;
-                }
-
-                if (! isset($users[$user->id])) {
-                    $users[$user->id] = $user;
-                    $added++;
-                }
+            foreach ($page->items as $user) {
+                $users[$user->id] = $user;
             }
 
-            $offset += count($rows);
-
-            if ($added === 0 || count($rows) < $requested) {
+            if ($page->nextStart === null || $page->nextStart <= $offset) {
                 break;
             }
+
+            $offset = $page->nextStart;
         }
 
         return collect(array_values($users));

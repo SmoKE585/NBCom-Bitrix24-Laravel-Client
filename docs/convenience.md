@@ -83,6 +83,22 @@ $departments = Bitrix24::departments()->search('ИТ');
 
 Оба поиска идут через IM: `im.search.user.list` и `im.search.department.list`.
 
+## Постраничный поиск с total
+
+```php
+$page = Bitrix24::users()->searchPage('Иван', limit: 20, offset: 40);
+
+$page->items;      // list<UserData>
+$page->total;      // всего найдено
+$page->nextStart;  // offset следующей страницы или null
+$page->hasMore();
+
+$departments = Bitrix24::departments()->searchPage('ИТ', limit: 20);
+```
+
+`search()` остаётся сахаром «получить до N результатов» и возвращает коллекцию
+без total. Для таблиц/пагинации используй `searchPage()`.
+
 ## Сотрудники подразделения
 
 ```php

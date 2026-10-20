@@ -43,6 +43,15 @@ final class DepartmentServiceTest extends TestCase
         self::assertCount(2, $client->callsFor('im.department.employees.get'));
     }
 
+    public function test_search_page_returns_total(): void
+    {
+        $page = $this->service($this->client())->searchPage('it', limit: 1);
+
+        self::assertCount(1, $page->items);
+        self::assertSame(1, $page->total);
+        self::assertNull($page->nextStart);
+    }
+
     public function test_search_uses_im_search(): void
     {
         $client = $this->client();

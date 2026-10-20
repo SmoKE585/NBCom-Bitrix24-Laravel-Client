@@ -136,6 +136,7 @@ Bitrix24::users()->getOrFail(int $id): UserData
 Bitrix24::users()->findByEmail(string $email): ?UserData
 Bitrix24::users()->findByLogin(string $login): ?UserData
 Bitrix24::users()->search(string $query, int $limit = 50, ?UserFilter $filter = null): Collection
+Bitrix24::users()->searchPage(string $query, int $limit = 50, int $offset = 0, ?UserFilter $filter = null): Page
 Bitrix24::users()->getMany(array $ids): Collection
 Bitrix24::users()->inDepartment(int $departmentId, bool $includeNested = false, ?UserFilter $filter = null, bool $fresh = false): Collection
 Bitrix24::users()->colleaguesOf(int $departmentId, ?int $excludeUserId = null, bool $includeNested = false, ?UserFilter $filter = null, bool $fresh = false): Collection
@@ -162,6 +163,7 @@ Bitrix24::departments()->pathTo(int $id): array
 Bitrix24::departments()->root(): ?DepartmentData
 Bitrix24::departments()->findByName(string $name, bool $fresh = false): ?DepartmentData
 Bitrix24::departments()->search(string $query, int $limit = 50, bool $fresh = false): Collection
+Bitrix24::departments()->searchPage(string $query, int $limit = 50, int $offset = 0, bool $fresh = false): Page
 Bitrix24::departments()->headOf(int $departmentId, bool $fresh = false): ?UserData
 Bitrix24::departments()->headsOf(int $departmentId, bool $includeNested = true, bool $fresh = false): Collection
 Bitrix24::departments()->managementChainOf(int $departmentId, bool $fresh = false): Collection
@@ -270,6 +272,10 @@ Bitrix24::call(string $method, array $params = []): mixed // крайний сл
 ### DepartmentData
 
 `id`, `name`, `parentId`, `sort`, `headUserId`, `customFields`.
+
+### Page
+
+`items` (`list<T>`), `total`, `nextStart`, `hasMore()`.
 
 ### DepartmentTree
 

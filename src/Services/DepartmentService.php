@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use Nbcom\Bitrix24\Dto\DepartmentData;
 use Nbcom\Bitrix24\Dto\DepartmentTeam;
 use Nbcom\Bitrix24\Dto\DepartmentTree;
+use Nbcom\Bitrix24\Dto\Page;
 use Nbcom\Bitrix24\Dto\UserData;
 use Nbcom\Bitrix24\Enums\Bitrix24ErrorReason;
 use Nbcom\Bitrix24\Exceptions\Bitrix24NotFoundException;
@@ -130,6 +131,14 @@ final class DepartmentService
      *
      * @return Collection<int, DepartmentData>
      */
+    /**
+     * @return Page<DepartmentData>
+     */
+    public function searchPage(string $query, int $limit = 50, int $offset = 0, bool $fresh = false): Page
+    {
+        return $this->lookup->searchPage($query, $limit, $offset, $fresh || $this->fresh);
+    }
+
     public function search(string $query, int $limit = 50, bool $fresh = false): Collection
     {
         return $this->lookup->search($query, $limit, $fresh || $this->fresh);

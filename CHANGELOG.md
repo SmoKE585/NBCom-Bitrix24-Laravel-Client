@@ -3,6 +3,14 @@
 Все заметные изменения пакета. Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии — [SemVer](https://semver.org/lang/ru/).
 
+## [1.4.0] — 2026-10-20
+
+### Added
+
+- `users()->searchPage()` и `departments()->searchPage()`: `Page` с `items`,
+  `total`, `nextStart` и `hasMore()`.
+- `search()` остаётся коллекцией без total для обратной совместимости.
+
 ## [1.3.2] — 2026-10-20
 
 ### Removed

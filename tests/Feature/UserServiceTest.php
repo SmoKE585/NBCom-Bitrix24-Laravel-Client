@@ -78,6 +78,28 @@ final class UserServiceTest extends TestCase
         self::assertCount(2, $client->callsFor('im.search.user.list'));
     }
 
+    public function test_search_page_returns_total_and_next_offset(): void
+    {
+        $client = new FakeClient([
+            'im.search.user.list' => static fn (array $params): array => [
+                'result' => array_map(
+                    static fn (int $id): array => ['id' => $id, 'name' => 'User '.$id, 'active' => true],
+                    range(1, (int) $params['LIMIT']),
+                ),
+                'total' => 52,
+                'next' => (int) $params['OFFSET'] + (int) $params['LIMIT'],
+            ],
+        ]);
+        $users = $this->users($client, TestCache::disabled());
+
+        $page = $users->searchPage('User', limit: 10);
+
+        self::assertCount(10, $page->items);
+        self::assertSame(52, $page->total);
+        self::assertSame(10, $page->nextStart);
+        self::assertTrue($page->hasMore());
+    }
+
     public function test_in_department_includes_nested_departments(): void
     {
         $client = new FakeClient([

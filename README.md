@@ -267,6 +267,15 @@ $team->memberCount();
 $users = Bitrix24::users()->search('Иван');
 $departments = Bitrix24::departments()->search('ИТ');
 
+// Поиск с общим числом и пагинацией
+$page = Bitrix24::users()->searchPage('Иван', limit: 20, offset: 0);
+$page->items;      // list<UserData>
+$page->total;      // всего найдено
+$page->nextStart;  // offset следующей страницы или null
+$page->hasMore();
+
+$page = Bitrix24::departments()->searchPage('ИТ', limit: 20, offset: 0);
+
 // Сотрудники подразделения через im.department.employees.get
 $employees = Bitrix24::departments()->employees(15);
 $employeeIds = Bitrix24::departments()->employeeIds(15);
