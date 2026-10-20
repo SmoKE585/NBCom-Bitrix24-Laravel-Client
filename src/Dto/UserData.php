@@ -36,6 +36,7 @@ final readonly class UserData implements JsonSerializable
         public ?CarbonImmutable $registeredAt,
         public ?string $avatarUrl,
         public array $customFields = [],
+        public ?string $status = null,
     ) {}
 
     /**
@@ -56,6 +57,7 @@ final readonly class UserData implements JsonSerializable
         }
 
         $phones = is_array($data['phones'] ?? null) ? $data['phones'] : [];
+        $status = self::string($data['status'] ?? $data['STATUS'] ?? null);
 
         return new self(
             id: $id,
@@ -73,11 +75,12 @@ final readonly class UserData implements JsonSerializable
             departmentIds: self::intList($data['UF_DEPARTMENT'] ?? $data['departmentIds'] ?? $data['departments'] ?? []),
             userType: UserType::fromBitrix($data['USER_TYPE'] ?? $data['userType'] ?? $data['type'] ?? null),
             timeZone: self::string($data['TIME_ZONE'] ?? $data['timeZone'] ?? null),
-            online: self::bool($data['IS_ONLINE'] ?? $data['online'] ?? (($data['status'] ?? null) === 'online')),
+            online: self::bool($data['IS_ONLINE'] ?? $data['online'] ?? ($status === 'online')),
             lastLoginAt: self::date($data['LAST_LOGIN'] ?? $data['lastLoginAt'] ?? null),
             registeredAt: self::date($data['DATE_REGISTER'] ?? $data['registeredAt'] ?? null),
             avatarUrl: self::avatar($data['PERSONAL_PHOTO'] ?? $data['avatarUrl'] ?? $data['avatar_hr'] ?? $data['avatar'] ?? null),
             customFields: self::customFields($data),
+            status: $status,
         );
     }
 
@@ -107,6 +110,7 @@ final readonly class UserData implements JsonSerializable
             'registeredAt' => $this->registeredAt?->toIso8601String(),
             'avatarUrl' => $this->avatarUrl,
             'customFields' => $this->customFields,
+            'status' => $this->status,
         ];
     }
 

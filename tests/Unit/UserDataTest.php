@@ -79,6 +79,7 @@ final class UserDataTest extends TestCase
         self::assertSame([10], $user->departmentIds);
         self::assertSame('+10000000000', $user->mobilePhone);
         self::assertSame('42', $user->innerPhone);
+        self::assertSame('online', $user->status);
         self::assertTrue($user->online);
     }
 

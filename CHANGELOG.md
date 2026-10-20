@@ -3,6 +3,12 @@
 Все заметные изменения пакета. Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии — [SemVer](https://semver.org/lang/ru/).
 
+## [1.3.1] — 2026-10-20
+
+### Added
+
+- `UserData::$status` — статус из `im.user.get` (`online`, `dnd`, `away`, `break`).
+
 ## [1.3.0] — 2026-10-20
 
 ### Changed
