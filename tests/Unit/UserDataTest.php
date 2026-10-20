@@ -58,6 +58,30 @@ final class UserDataTest extends TestCase
         self::assertNull($user->lastLoginAt);
     }
 
+    public function test_hydrates_im_search_user_payload(): void
+    {
+        $user = UserData::fromArray([
+            'id' => 5,
+            'name' => 'John Smith',
+            'first_name' => 'John',
+            'last_name' => 'Smith',
+            'active' => true,
+            'work_position' => 'Manager',
+            'email' => 'john@example.ru',
+            'avatar' => 'https://example.test/avatar.png',
+            'departments' => [10],
+            'status' => 'online',
+            'phones' => ['personal_mobile' => '+10000000000', 'inner_phone' => '42'],
+        ]);
+
+        self::assertSame('John Smith', $user->fullName);
+        self::assertSame('Manager', $user->workPosition);
+        self::assertSame([10], $user->departmentIds);
+        self::assertSame('+10000000000', $user->mobilePhone);
+        self::assertSame('42', $user->innerPhone);
+        self::assertTrue($user->online);
+    }
+
     public function test_treats_inactive_and_no_as_false(): void
     {
         $user = UserData::fromArray(['ID' => 5, 'ACTIVE' => 'N', 'IS_ONLINE' => 'N']);

@@ -27,6 +27,62 @@ final class NotificationService
         private readonly string $clientId = '',
     ) {}
 
+    /**
+     * Send a personal chat message with an optional keyboard, menu and attachment.
+     *
+     * @param  array<string, mixed>|null  $attach
+     * @param  array<int, array<string, mixed>>|null  $keyboard
+     * @param  array<string, mixed>|null  $menu
+     */
+    public function chat(
+        int $userId,
+        string $message,
+        ?array $attach = null,
+        ?array $keyboard = null,
+        ?array $menu = null,
+        bool $system = false,
+        bool $urlPreview = true,
+    ): NotificationReceipt {
+        $this->assertUser($userId);
+        $this->assertMessage($message);
+
+        $method = $this->guard->methodFor('notifications.chat');
+        $this->guard->ensure($method);
+
+        $params = [
+            'DIALOG_ID' => (string) $userId,
+            'MESSAGE' => trim($message),
+            'SYSTEM' => $system ? 'Y' : 'N',
+            'URL_PREVIEW' => $urlPreview ? 'Y' : 'N',
+        ];
+
+        if ($attach !== null) {
+            $params['ATTACH'] = $attach;
+        }
+
+        if ($keyboard !== null) {
+            $params['KEYBOARD'] = $keyboard;
+        }
+
+        if ($menu !== null) {
+            $params['MENU'] = $menu;
+        }
+
+        $body = $this->client->call(
+            method: $method,
+            params: $params,
+            policy: RetryPolicy::forNotifications(),
+        );
+        $result = $body['result'] ?? null;
+
+        return new NotificationReceipt(
+            userId: $userId,
+            channel: NotificationChannel::Chat,
+            notificationId: is_numeric($result) && (int) $result > 0 ? (int) $result : null,
+            delivered: $result !== false && $result !== null,
+        );
+    }
+
     public function toUser(
         int $userId,
         string $message,

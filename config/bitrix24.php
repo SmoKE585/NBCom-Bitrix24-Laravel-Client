@@ -17,7 +17,7 @@ return [
     |
     */
 
-    'endpoint' => env('BITRIX24_ENDPOINT'),
+    'endpoint' => env('BITRIX24_ENDPOINT', env('BITRIX24_WEBHOOK_URL')),
 
     /*
     |--------------------------------------------------------------------------
@@ -70,6 +70,7 @@ return [
     'features' => [
         'users' => true,
         'departments' => true,
+        'live_feed' => false,
         'notifications' => [
             'system' => true,
             'personal' => true,

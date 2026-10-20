@@ -25,6 +25,7 @@ use Nbcom\Bitrix24\Contracts\ClientInterface;
 use Nbcom\Bitrix24\Contracts\SnapshotStoreInterface;
 use Nbcom\Bitrix24\Services\DepartmentLookup;
 use Nbcom\Bitrix24\Services\DepartmentService;
+use Nbcom\Bitrix24\Services\LiveFeedService;
 use Nbcom\Bitrix24\Services\NotificationService;
 use Nbcom\Bitrix24\Services\UserService;
 use Nbcom\Bitrix24\Support\ResultCache;
@@ -152,10 +153,16 @@ final class Bitrix24ServiceProvider extends ServiceProvider
             clientId: (string) $app['config']->get('bitrix24.client_id', ''),
         ));
 
+        $this->app->scoped(LiveFeedService::class, static fn ($app): LiveFeedService => new LiveFeedService(
+            client: $app->make(ClientInterface::class),
+            guard: $app->make(CapabilityManager::class),
+        ));
+
         $this->app->scoped(Bitrix24Manager::class, static fn ($app): Bitrix24Manager => new Bitrix24Manager(
             users: $app->make(UserService::class),
             departments: $app->make(DepartmentService::class),
             notifications: $app->make(NotificationService::class),
+            liveFeed: $app->make(LiveFeedService::class),
             capabilities: $app->make(CapabilityManager::class),
             cache: $app->make(ResultCache::class),
             client: $app->make(ClientInterface::class),

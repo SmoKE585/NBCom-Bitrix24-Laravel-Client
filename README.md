@@ -18,8 +18,10 @@
 - Пользователи: по ID, email, логину, поиск, сотрудники подразделения, коллеги.
 - Оргструктура: подразделения, дерево, дети, предки, путь, руководители.
 - Кодовый сахар: `colleaguesOf()`, `headsOf()`, `managementChainOf()`, `team()`.
-- Поиск по пользователям и подразделениям от 2 символов.
-- Уведомления: системные, личные, сообщения в личный чат.
+- IM-поиск пользователей и подразделений от 2 символов.
+- Сотрудники подразделения через `im.department.employees.get`.
+- Уведомления: системные, личные, сообщения в личный чат с клавиатурой.
+- Живая лента через `log.blogpost.add`.
 - Массовая отправка с отчётом об успехах и ошибках.
 - Проверка scopes и методов через `scope` + `method.get`, с fallback на `methods`.
 - Snapshot проверки в JSON-файле: без сетевого вызова на каждый запрос.
@@ -94,7 +96,8 @@ php artisan bitrix24:check --smoke
 
 1. валиден ли токен;
 2. выданы ли scopes `user`, `department`, `im`;
-3. доступны ли `user.get`, `user.search`, `user.current`, `department.get`,
+3. доступны ли `user.get`, `user.current`, `department.get`,
+   `im.search.user.list`, `im.search.department.list`, `im.department.employees.get`,
    `im.notify.system.add`, `im.notify.personal.add`, `im.message.add`;
 4. может ли webhook реально читать данные (`--smoke`).
 
@@ -185,9 +188,30 @@ $team->children;    // list<DepartmentData>
 $team->path;        // list<DepartmentData>
 $team->memberCount();
 
-// Поиск от 2 символов
+// IM-поиск от 2 символов
 $users = Bitrix24::users()->search('Иван');
 $departments = Bitrix24::departments()->search('ИТ');
+
+// Сотрудники подразделения через im.department.employees.get
+$employees = Bitrix24::departments()->employees(15);
+$employeeIds = Bitrix24::departments()->employeeIds(15);
+
+// Пользователи по IDs одним вызовом
+$users = Bitrix24::users()->getMany([1, 2, 3]);
+
+// Чат с кнопкой-ссылкой
+Bitrix24::notifications()->chat(
+    userId: 121590,
+    message: 'Гонка стартовала',
+    keyboard: [[
+        'TEXT' => '🏁 Открыть гонку',
+        'LINK' => 'https://race.example.ru/races/42',
+        'DISPLAY' => 'LINE',
+    ]],
+);
+
+// Живая лента (нужен scope log)
+Bitrix24::liveFeed()->post('Итоги гонки', ['UA'], 'Гонка завершена');
 ```
 
 Запрос короче 2 символов возвращает пустую коллекцию без обращения к Bitrix.

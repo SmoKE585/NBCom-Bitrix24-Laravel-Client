@@ -30,6 +30,16 @@ final class UserFilter
         return new self;
     }
 
+    public function active(): ?bool
+    {
+        return $this->active;
+    }
+
+    public function userTypeFilter(): ?UserType
+    {
+        return $this->userType;
+    }
+
     public function activeOnly(bool $active = true): self
     {
         $this->active = $active;

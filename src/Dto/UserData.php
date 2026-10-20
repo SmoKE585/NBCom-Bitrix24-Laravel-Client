@@ -44,15 +44,18 @@ final readonly class UserData implements JsonSerializable
     public static function fromArray(array $data): self
     {
         $id = (int) ($data['ID'] ?? $data['id'] ?? 0);
-        $firstName = self::string($data['NAME'] ?? $data['firstName'] ?? null) ?? '';
-        $lastName = self::string($data['LAST_NAME'] ?? $data['lastName'] ?? null);
-        $secondName = self::string($data['SECOND_NAME'] ?? $data['secondName'] ?? null);
+        $firstName = self::string($data['NAME'] ?? $data['firstName'] ?? $data['first_name'] ?? $data['FIRST_NAME'] ?? null) ?? '';
+        $lastName = self::string($data['LAST_NAME'] ?? $data['lastName'] ?? $data['last_name'] ?? $data['LAST_NAME'] ?? null);
+        $secondName = self::string($data['SECOND_NAME'] ?? $data['secondName'] ?? $data['second_name'] ?? null);
         $email = self::string($data['EMAIL'] ?? $data['email'] ?? null);
-        $fullName = trim(implode(' ', array_filter([$lastName, $firstName, $secondName], static fn (?string $part): bool => $part !== null && $part !== '')));
+        $fullName = self::string($data['fullName'] ?? $data['name'] ?? null)
+            ?? trim(implode(' ', array_filter([$lastName, $firstName, $secondName], static fn (?string $part): bool => $part !== null && $part !== '')));
 
         if ($fullName === '') {
             $fullName = $email ?? '#'.$id;
         }
+
+        $phones = is_array($data['phones'] ?? null) ? $data['phones'] : [];
 
         return new self(
             id: $id,
@@ -63,17 +66,17 @@ final readonly class UserData implements JsonSerializable
             fullName: $fullName,
             email: $email,
             login: self::string($data['LOGIN'] ?? $data['login'] ?? null),
-            workPosition: self::string($data['WORK_POSITION'] ?? $data['workPosition'] ?? null),
-            workPhone: self::string($data['WORK_PHONE'] ?? $data['workPhone'] ?? null),
-            mobilePhone: self::string($data['PERSONAL_MOBILE'] ?? $data['mobilePhone'] ?? null),
-            innerPhone: self::string($data['UF_PHONE_INNER'] ?? $data['innerPhone'] ?? null),
-            departmentIds: self::intList($data['UF_DEPARTMENT'] ?? $data['departmentIds'] ?? []),
-            userType: UserType::fromBitrix($data['USER_TYPE'] ?? $data['userType'] ?? null),
+            workPosition: self::string($data['WORK_POSITION'] ?? $data['workPosition'] ?? $data['work_position'] ?? null),
+            workPhone: self::string($data['WORK_PHONE'] ?? $data['workPhone'] ?? $data['work_phone'] ?? $phones['work_phone'] ?? null),
+            mobilePhone: self::string($data['PERSONAL_MOBILE'] ?? $data['mobilePhone'] ?? $data['personal_mobile'] ?? $phones['personal_mobile'] ?? null),
+            innerPhone: self::string($data['UF_PHONE_INNER'] ?? $data['innerPhone'] ?? $data['inner_phone'] ?? $phones['inner_phone'] ?? null),
+            departmentIds: self::intList($data['UF_DEPARTMENT'] ?? $data['departmentIds'] ?? $data['departments'] ?? []),
+            userType: UserType::fromBitrix($data['USER_TYPE'] ?? $data['userType'] ?? $data['type'] ?? null),
             timeZone: self::string($data['TIME_ZONE'] ?? $data['timeZone'] ?? null),
-            online: self::bool($data['IS_ONLINE'] ?? $data['online'] ?? false),
+            online: self::bool($data['IS_ONLINE'] ?? $data['online'] ?? (($data['status'] ?? null) === 'online')),
             lastLoginAt: self::date($data['LAST_LOGIN'] ?? $data['lastLoginAt'] ?? null),
             registeredAt: self::date($data['DATE_REGISTER'] ?? $data['registeredAt'] ?? null),
-            avatarUrl: self::avatar($data['PERSONAL_PHOTO'] ?? $data['avatarUrl'] ?? null),
+            avatarUrl: self::avatar($data['PERSONAL_PHOTO'] ?? $data['avatarUrl'] ?? $data['avatar_hr'] ?? $data['avatar'] ?? null),
             customFields: self::customFields($data),
         );
     }

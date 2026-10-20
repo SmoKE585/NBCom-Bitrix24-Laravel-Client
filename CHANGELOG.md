@@ -3,6 +3,21 @@
 Все заметные изменения пакета. Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии — [SemVer](https://semver.org/lang/ru/).
 
+## [1.2.0] — 2026-10-20
+
+### Added
+
+- Поиск пользователей через `im.search.user.list` (fallback на `user.search`).
+- Поиск подразделений через `im.search.department.list` (fallback на `department.get`).
+- Сотрудники подразделения через `im.department.employees.get`:
+  `departments()->employeeIds()` и `departments()->employees()`.
+- `users()->getMany()` и `departments()->getMany()`.
+- `notifications()->chat()` с `keyboard`, `menu`, `attach`, `system`, `urlPreview`.
+- `liveFeed()->post()` через `log.blogpost.add` (feature `live_feed`, scope `log`).
+- DTO понимают IM-поля: `first_name`, `last_name`, `work_position`, `avatar`,
+  `departments`, `full_name`, `manager_user_id`.
+- Fallback `BITRIX24_WEBHOOK_URL` для `BITRIX24_ENDPOINT`.
+
 ## [1.1.0] — 2026-10-20
 
 ### Added

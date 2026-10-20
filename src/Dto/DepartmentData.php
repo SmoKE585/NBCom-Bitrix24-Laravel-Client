@@ -18,6 +18,8 @@ final readonly class DepartmentData implements JsonSerializable
         public int $sort,
         public ?int $headUserId,
         public array $customFields = [],
+        public ?string $fullName = null,
+        public ?int $managerUserId = null,
     ) {}
 
     /**
@@ -25,13 +27,23 @@ final readonly class DepartmentData implements JsonSerializable
      */
     public static function fromArray(array $data): self
     {
+        $name = trim((string) ($data['NAME'] ?? $data['name'] ?? ''));
+        $fullName = self::nullableString($data['full_name'] ?? $data['fullName'] ?? null);
+        $managerUserId = self::intOrNull($data['manager_user_id'] ?? $data['managerUserId'] ?? null);
+
+        if ($name === '') {
+            $name = $fullName ?? '';
+        }
+
         return new self(
             id: (int) ($data['ID'] ?? $data['id'] ?? 0),
-            name: (string) ($data['NAME'] ?? $data['name'] ?? ''),
+            name: $name,
             parentId: self::intOrNull($data['PARENT'] ?? $data['parentId'] ?? $data['parent'] ?? null),
             sort: (int) ($data['SORT'] ?? $data['sort'] ?? 0),
-            headUserId: self::intOrNull($data['UF_HEAD'] ?? $data['headUserId'] ?? $data['head'] ?? null),
+            headUserId: self::intOrNull($data['UF_HEAD'] ?? $data['headUserId'] ?? $data['head'] ?? $data['manager_user_id'] ?? null),
             customFields: self::customFields($data),
+            fullName: $fullName,
+            managerUserId: $managerUserId,
         );
     }
 
@@ -47,6 +59,8 @@ final readonly class DepartmentData implements JsonSerializable
             'sort' => $this->sort,
             'headUserId' => $this->headUserId,
             'customFields' => $this->customFields,
+            'fullName' => $this->fullName,
+            'managerUserId' => $this->managerUserId,
         ];
     }
 
@@ -69,6 +83,17 @@ final readonly class DepartmentData implements JsonSerializable
         }
 
         return null;
+    }
+
+    private static function nullableString(mixed $value): ?string
+    {
+        if (! is_string($value) && ! is_numeric($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 
     /**

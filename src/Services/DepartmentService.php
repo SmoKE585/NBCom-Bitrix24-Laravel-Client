@@ -11,7 +11,6 @@ use Nbcom\Bitrix24\Dto\DepartmentTree;
 use Nbcom\Bitrix24\Dto\UserData;
 use Nbcom\Bitrix24\Enums\Bitrix24ErrorReason;
 use Nbcom\Bitrix24\Exceptions\Bitrix24NotFoundException;
-use Nbcom\Bitrix24\Support\SearchTerm;
 use Nbcom\Bitrix24\Support\UserFilter;
 
 final class DepartmentService
@@ -50,6 +49,33 @@ final class DepartmentService
         }
 
         return $department;
+    }
+
+    /**
+     * @param  list<int>  $ids
+     * @return Collection<int, DepartmentData>
+     */
+    public function getMany(array $ids): Collection
+    {
+        $departments = [];
+        $seen = [];
+
+        foreach ($ids as $id) {
+            $id = (int) $id;
+
+            if ($id <= 0 || isset($seen[$id])) {
+                continue;
+            }
+
+            $department = $this->get($id);
+
+            if ($department !== null) {
+                $seen[$id] = true;
+                $departments[] = $department;
+            }
+        }
+
+        return collect($departments);
     }
 
     /**
@@ -106,17 +132,7 @@ final class DepartmentService
      */
     public function search(string $query, int $limit = 50, bool $fresh = false): Collection
     {
-        $query = SearchTerm::normalize($query);
-        $limit = max(0, $limit);
-
-        if ($limit === 0 || SearchTerm::tooShort($query)) {
-            return collect();
-        }
-
-        return $this->all($fresh)
-            ->filter(static fn (DepartmentData $department): bool => mb_stripos($department->name, $query) !== false)
-            ->take($limit)
-            ->values();
+        return $this->lookup->search($query, $limit, $fresh || $this->fresh);
     }
 
     public function headOf(int $departmentId, bool $fresh = false): ?UserData
@@ -224,6 +240,32 @@ final class DepartmentService
             children: $tree->childrenOf($departmentId)->all(),
             path: $tree->pathTo($departmentId),
         );
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function employeeIds(int $departmentId, bool $includeNested = false, bool $fresh = false): array
+    {
+        return $this->users->departmentEmployeeIds(
+            departmentId: $departmentId,
+            includeNested: $includeNested,
+            fresh: $fresh || $this->fresh,
+        );
+    }
+
+    /**
+     * Employees of a department via im.department.employees.get.
+     *
+     * @return Collection<int, UserData>
+     */
+    public function employees(
+        int $departmentId,
+        bool $includeNested = false,
+        ?UserFilter $filter = null,
+        bool $fresh = false,
+    ): Collection {
+        return $this->members($departmentId, $includeNested, $filter, $fresh);
     }
 
     /**

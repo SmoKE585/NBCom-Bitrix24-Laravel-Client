@@ -17,9 +17,12 @@ final class AllowAllCapabilities implements CapabilityGuardInterface
             'notifications.personal' => 'im.notify.personal.add',
             'notifications.chat' => 'im.message.add',
             'users.get' => 'user.get',
-            'users.search' => 'user.search',
+            'users.search' => 'im.search.user.list',
             'users.current' => 'user.current',
             'departments.get' => 'department.get',
+            'departments.search' => 'im.search.department.list',
+            'departments.employees' => 'im.department.employees.get',
+            'live_feed.post' => 'log.blogpost.add',
             default => $feature,
         };
     }

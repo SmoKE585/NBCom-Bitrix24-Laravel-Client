@@ -12,6 +12,7 @@ use Nbcom\Bitrix24\Capabilities\CapabilityManager;
 use Nbcom\Bitrix24\Contracts\ClientInterface;
 use Nbcom\Bitrix24\Services\DepartmentLookup;
 use Nbcom\Bitrix24\Services\DepartmentService;
+use Nbcom\Bitrix24\Services\LiveFeedService;
 use Nbcom\Bitrix24\Services\NotificationService;
 use Nbcom\Bitrix24\Services\UserService;
 use Nbcom\Bitrix24\Support\ResultCache;
@@ -22,6 +23,7 @@ use RuntimeException;
  * @method static \Nbcom\Bitrix24\Services\UserService users()
  * @method static \Nbcom\Bitrix24\Services\DepartmentService departments()
  * @method static \Nbcom\Bitrix24\Services\NotificationService notifications()
+ * @method static \Nbcom\Bitrix24\Services\LiveFeedService liveFeed()
  * @method static \Nbcom\Bitrix24\Dto\UserData me(bool $fresh = false)
  * @method static \Nbcom\Bitrix24\Dto\HealthReport health(bool $refresh = false)
  * @method static \Nbcom\Bitrix24\Dto\CacheInfo cacheInfo()
@@ -72,6 +74,7 @@ final class Bitrix24 extends Facade
             UserService::class,
             DepartmentService::class,
             NotificationService::class,
+            LiveFeedService::class,
             DepartmentLookup::class,
             CapabilityManager::class,
             CapabilityChecker::class,

@@ -67,6 +67,26 @@ final class NotificationServiceTest extends TestCase
         self::assertSame('N', $params['SYSTEM']);
     }
 
+    public function test_chat_supports_keyboard_and_attachment(): void
+    {
+        $client = new FakeClient(['im.message.add' => ['result' => 77]]);
+        $keyboard = [['TEXT' => 'Open', 'LINK' => 'https://example.test', 'DISPLAY' => 'LINE']];
+
+        $this->service($client)->chat(
+            userId: 5,
+            message: 'Hello',
+            keyboard: $keyboard,
+            system: true,
+            urlPreview: false,
+        );
+
+        $params = $client->callsFor('im.message.add')[0]['params'];
+        self::assertSame('5', $params['DIALOG_ID']);
+        self::assertSame('Y', $params['SYSTEM']);
+        self::assertSame('N', $params['URL_PREVIEW']);
+        self::assertSame($keyboard, $params['KEYBOARD']);
+    }
+
     public function test_tag_requires_a_client_id(): void
     {
         $this->expectException(Bitrix24ConfigurationException::class);

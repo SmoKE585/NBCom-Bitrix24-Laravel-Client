@@ -43,6 +43,15 @@ final class DepartmentServiceTest extends TestCase
         self::assertSame(10, $members->first()?->id);
     }
 
+    public function test_employee_ids_use_im_department_employees(): void
+    {
+        $client = $this->client();
+        $service = $this->service($client);
+
+        self::assertSame([10], $service->employeeIds(2));
+        self::assertCount(1, $client->callsFor('im.department.employees.get'));
+    }
+
     public function test_search_finds_partial_names_and_requires_two_characters(): void
     {
         $service = $this->service($this->client());
@@ -121,6 +130,17 @@ final class DepartmentServiceTest extends TestCase
 
                 return ['result' => [['ID' => $id, 'NAME' => $id === 20 ? 'Head' : 'Alice', 'UF_DEPARTMENT' => [2]]]];
             },
+            'im.search.department.list' => static fn (array $params): array => [
+                'result' => array_values(array_filter([
+                    ['ID' => 2, 'NAME' => 'IT', 'FULL_NAME' => 'IT / Company', 'MANAGER_USER_ID' => 20],
+                    ['ID' => 3, 'NAME' => 'Backend', 'FULL_NAME' => 'Backend / IT'],
+                ], static fn (array $row): bool => mb_stripos($row['NAME'], (string) $params['FIND']) !== false)),
+            ],
+            'im.department.employees.get' => static fn (array $params): array => [
+                'result' => ($params['USER_DATA'] ?? null) === 'Y'
+                    ? ['2' => [['id' => 10, 'name' => 'Alice', 'active' => true, 'departments' => [2]]]]
+                    : ['2' => [10]],
+            ],
         ]);
     }
 

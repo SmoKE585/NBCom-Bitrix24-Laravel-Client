@@ -10,6 +10,7 @@ use Nbcom\Bitrix24\Contracts\ClientInterface;
 use Nbcom\Bitrix24\Dto\DepartmentData;
 use Nbcom\Bitrix24\Dto\DepartmentTree;
 use Nbcom\Bitrix24\Support\ResultCache;
+use Nbcom\Bitrix24\Support\SearchTerm;
 
 final class DepartmentLookup
 {
@@ -119,5 +120,43 @@ final class DepartmentLookup
         return $this->all($fresh)->first(
             static fn (DepartmentData $department): bool => $department->name === $name,
         );
+    }
+
+    /**
+     * @return Collection<int, DepartmentData>
+     */
+    public function search(string $query, int $limit = 50, bool $fresh = false): Collection
+    {
+        $query = SearchTerm::normalize($query);
+        $limit = max(0, $limit);
+
+        if ($limit === 0 || SearchTerm::tooShort($query)) {
+            return collect();
+        }
+
+        if ($this->guard->methodFor('departments.search') === 'im.search.department.list') {
+            $body = $this->client->call('im.search.department.list', [
+                'FIND' => $query,
+                'LIMIT' => min(50, $limit),
+                'OFFSET' => 0,
+                'USER_DATA' => 'Y',
+            ]);
+            $rows = $body['result'] ?? [];
+
+            if (! is_array($rows)) {
+                return collect();
+            }
+
+            return collect(array_values(array_filter($rows, 'is_array')))
+                ->map(static fn (array $row): DepartmentData => DepartmentData::fromArray($row))
+                ->filter(static fn (DepartmentData $department): bool => $department->id > 0)
+                ->take($limit)
+                ->values();
+        }
+
+        return $this->all($fresh)
+            ->filter(static fn (DepartmentData $department): bool => mb_stripos($department->name, $query) !== false)
+            ->take($limit)
+            ->values();
     }
 }

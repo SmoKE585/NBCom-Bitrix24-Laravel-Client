@@ -81,9 +81,55 @@ $departments = Bitrix24::departments()->search('ИТ');
 - не кэшируются (это динамические запросы);
 - принимают `limit`, по умолчанию 50.
 
-Поиск подразделений — частичный, без учёта регистра, по названию. Он выполняется
-по уже загруженному списку подразделений, поэтому не делает отдельный HTTP-запрос
-на каждый символ, если список уже в кэше.
+Оба поиска идут через IM: `im.search.user.list` и `im.search.department.list`.
+Если IM-метод недоступен, пакет откатывается на `user.search` / `department.get`.
+
+## Сотрудники подразделения
+
+```php
+$employees = Bitrix24::departments()->employees(15, includeNested: true);
+$employeeIds = Bitrix24::departments()->employeeIds(15, includeNested: true);
+```
+
+Внутри — `im.department.employees.get`: с `USER_DATA=Y` возвращаются сотрудники,
+без него — только их ID. Это быстрее и точнее, чем фильтр `UF_DEPARTMENT`.
+
+## Пользователи и подразделения по IDs
+
+```php
+$users = Bitrix24::users()->getMany([1, 2, 3]);
+$departments = Bitrix24::departments()->getMany([10, 20]);
+```
+
+Дедупликация и кэш — внутри.
+
+## Чат с клавиатурой
+
+```php
+Bitrix24::notifications()->chat(
+    userId: 121590,
+    message: 'Гонка стартовала',
+    keyboard: [[
+        'TEXT' => '🏁 Открыть гонку',
+        'LINK' => 'https://race.example.ru/races/42',
+        'DISPLAY' => 'LINE',
+    ]],
+    system: false,
+    urlPreview: true,
+);
+```
+
+## Живая лента
+
+```php
+Bitrix24::liveFeed()->post(
+    message: 'Итоги гонки',
+    dest: ['UA'],
+    title: 'Гонка завершена',
+);
+```
+
+Требует `features.live_feed = true` и scope `log`.
 
 ## Комбинированный пример
 

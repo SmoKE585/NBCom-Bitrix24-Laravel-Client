@@ -136,6 +136,7 @@ Bitrix24::users()->getOrFail(int $id): UserData
 Bitrix24::users()->findByEmail(string $email): ?UserData
 Bitrix24::users()->findByLogin(string $login): ?UserData
 Bitrix24::users()->search(string $query, int $limit = 50, ?UserFilter $filter = null): Collection
+Bitrix24::users()->getMany(array $ids): Collection
 Bitrix24::users()->inDepartment(int $departmentId, bool $includeNested = false, ?UserFilter $filter = null, bool $fresh = false): Collection
 Bitrix24::users()->colleaguesOf(int $departmentId, ?int $excludeUserId = null, bool $includeNested = false, ?UserFilter $filter = null, bool $fresh = false): Collection
 Bitrix24::users()->all(?UserFilter $filter = null): LazyCollection
@@ -152,6 +153,7 @@ Bitrix24::users()->fresh(): UserService
 ```php
 Bitrix24::departments()->get(int $id, bool $fresh = false): ?DepartmentData
 Bitrix24::departments()->getOrFail(int $id, bool $fresh = false): DepartmentData
+Bitrix24::departments()->getMany(array $ids): Collection
 Bitrix24::departments()->all(bool $fresh = false): Collection
 Bitrix24::departments()->tree(bool $refresh = false): DepartmentTree
 Bitrix24::departments()->childrenOf(int $id): Collection
@@ -164,11 +166,14 @@ Bitrix24::departments()->headOf(int $departmentId, bool $fresh = false): ?UserDa
 Bitrix24::departments()->headsOf(int $departmentId, bool $includeNested = true, bool $fresh = false): Collection
 Bitrix24::departments()->managementChainOf(int $departmentId, bool $fresh = false): Collection
 Bitrix24::departments()->team(int $departmentId, bool $includeNested = false, bool $withMembers = true, bool $fresh = false): DepartmentTeam
+Bitrix24::departments()->employeeIds(int $departmentId, bool $includeNested = false, bool $fresh = false): array
+Bitrix24::departments()->employees(int $departmentId, bool $includeNested = false, ?UserFilter $filter = null, bool $fresh = false): Collection
 Bitrix24::departments()->members(int $departmentId, bool $includeNested = false, ?UserFilter $filter = null, bool $fresh = false): Collection
 Bitrix24::departments()->fresh(): DepartmentService
 ```
 
-`search()` по подразделениям — частичный, без учёта регистра, от 2 символов.
+Поиск и сотрудники идут через `im.search.user.list`, `im.search.department.list` и
+`im.department.employees.get`. `search()` — от 2 символов.
 
 ### Уведомления
 
@@ -204,6 +209,16 @@ Bitrix24::notifications()->toDepartmentHead(
     string $message,
     // ... те же опции
 ): ?NotificationReceipt
+
+Bitrix24::notifications()->chat(
+    int $userId,
+    string $message,
+    ?array $attach = null,
+    ?array $keyboard = null,
+    ?array $menu = null,
+    bool $system = false,
+    bool $urlPreview = true,
+): NotificationReceipt
 ```
 
 Каналы:
@@ -219,6 +234,7 @@ Bitrix24::me(bool $fresh = false): UserData
 Bitrix24::health(bool $refresh = false): HealthReport
 Bitrix24::cacheInfo(): CacheInfo
 Bitrix24::forgetCapabilities(): void
+Bitrix24::liveFeed()->post(string $message, array $dest = [], ?string $title = null): LiveFeedReceipt
 Bitrix24::call(string $method, array $params = []): mixed // крайний случай
 ```
 
@@ -499,10 +515,15 @@ try {
 - `UF_HEAD` может быть `false` или `0` — пакет отдаёт `null`.
 - `LAST_LOGIN`, `DATE_REGISTER` могут быть пустой строкой — пакет отдаёт `null`.
 - `PERSONAL_PHOTO` может быть строкой URL или отсутствовать.
-- `user.get` возвращает максимум 50 записей; `user.search` тоже.
+- `user.get` возвращает максимум 50 записей.
+- `im.search.user.list` / `im.search.department.list` требуют минимум 2 символа
+  и отдают максимум 50 записей за страницу.
+- `im.department.employees.get` возвращает объект, ключ — ID подразделения;
+  с `USER_DATA=Y` — сотрудников, без него — их ID.
 - `user.get` не возвращает ботов, email-пользователей, Open Channels и Replica.
 - Extranet-пользователи могут не иметь части полей; проверяй `userType`.
-- `department.get` отдаёт только `ID`, `NAME`, `SORT`, `PARENT`, `UF_HEAD`.
+- `department.get` отдаёт только `ID`, `NAME`, `SORT`, `PARENT`, `UF_HEAD`
+  и используется для дерева/карточки, а не для поиска.
 - Названия подразделений могут дублироваться; `findByName()` вернёт первое
   совпадение, для надёжности используй ID.
 

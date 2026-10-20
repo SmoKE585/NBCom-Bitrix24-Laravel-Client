@@ -21,12 +21,14 @@ final class CapabilityRegistry
 
         if ((bool) ($features['users'] ?? true)) {
             $methods['users.get'] = ['user.get'];
-            $methods['users.search'] = ['user.search'];
+            $methods['users.search'] = ['im.search.user.list', 'user.search'];
             $methods['users.current'] = ['user.current'];
         }
 
         if ((bool) ($features['departments'] ?? true)) {
             $methods['departments.get'] = ['department.get'];
+            $methods['departments.search'] = ['im.search.department.list', 'department.get'];
+            $methods['departments.employees'] = ['im.department.employees.get', 'user.get'];
         }
 
         $notifications = $features['notifications'] ?? [];
@@ -43,6 +45,10 @@ final class CapabilityRegistry
             if ((bool) ($notifications['chat'] ?? true)) {
                 $methods['notifications.chat'] = ['im.message.add'];
             }
+        }
+
+        if ((bool) ($features['live_feed'] ?? false)) {
+            $methods['live_feed.post'] = ['log.blogpost.add'];
         }
 
         return $methods;
@@ -65,6 +71,10 @@ final class CapabilityRegistry
             $scopes[] = 'department';
         }
 
+        if ((bool) ($features['users'] ?? true) || (bool) ($features['departments'] ?? true)) {
+            $scopes[] = 'im';
+        }
+
         $notifications = $features['notifications'] ?? [];
 
         if (is_array($notifications) && (
@@ -73,6 +83,10 @@ final class CapabilityRegistry
             || (bool) ($notifications['chat'] ?? true)
         )) {
             $scopes[] = 'im';
+        }
+
+        if ((bool) ($features['live_feed'] ?? false)) {
+            $scopes[] = 'log';
         }
 
         return array_values(array_unique($scopes));

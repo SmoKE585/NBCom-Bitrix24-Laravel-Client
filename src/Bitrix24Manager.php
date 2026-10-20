@@ -10,6 +10,7 @@ use Nbcom\Bitrix24\Dto\CacheInfo;
 use Nbcom\Bitrix24\Dto\HealthReport;
 use Nbcom\Bitrix24\Dto\UserData;
 use Nbcom\Bitrix24\Services\DepartmentService;
+use Nbcom\Bitrix24\Services\LiveFeedService;
 use Nbcom\Bitrix24\Services\NotificationService;
 use Nbcom\Bitrix24\Services\UserService;
 use Nbcom\Bitrix24\Support\ResultCache;
@@ -21,6 +22,7 @@ final class Bitrix24Manager
         private readonly UserService $users,
         private readonly DepartmentService $departments,
         private readonly NotificationService $notifications,
+        private readonly LiveFeedService $liveFeed,
         private readonly CapabilityManager $capabilities,
         private readonly ResultCache $cache,
         private readonly ClientInterface $client,
@@ -39,6 +41,11 @@ final class Bitrix24Manager
     public function notifications(): NotificationService
     {
         return $this->notifications;
+    }
+
+    public function liveFeed(): LiveFeedService
+    {
+        return $this->liveFeed;
     }
 
     public function me(bool $fresh = false): UserData

@@ -11,6 +11,7 @@ use Nbcom\Bitrix24\Contracts\CapabilityGuardInterface;
 use Nbcom\Bitrix24\Contracts\ClientInterface;
 use Nbcom\Bitrix24\Dto\UserData;
 use Nbcom\Bitrix24\Enums\Bitrix24ErrorReason;
+use Nbcom\Bitrix24\Exceptions\Bitrix24Exception;
 use Nbcom\Bitrix24\Exceptions\Bitrix24NotFoundException;
 use Nbcom\Bitrix24\Support\ResultCache;
 use Nbcom\Bitrix24\Support\SearchTerm;
@@ -160,6 +161,33 @@ final class UserService
     }
 
     /**
+     * @param  list<int>  $ids
+     * @return Collection<int, UserData>
+     */
+    public function getMany(array $ids): Collection
+    {
+        $users = [];
+        $seen = [];
+
+        foreach ($ids as $id) {
+            $id = (int) $id;
+
+            if ($id <= 0 || isset($seen[$id])) {
+                continue;
+            }
+
+            $user = $this->get($id);
+
+            if ($user !== null) {
+                $seen[$id] = true;
+                $users[] = $user;
+            }
+        }
+
+        return collect($users);
+    }
+
+    /**
      * @return Collection<int, UserData>
      */
     public function search(string $query, int $limit = 50, ?UserFilter $filter = null): Collection
@@ -172,12 +200,16 @@ final class UserService
         }
 
         $filter ??= UserFilter::make()->activeOnly();
+        $method = $this->guard->methodFor('users.search');
+
+        if ($method === 'im.search.user.list') {
+            return $this->searchWithIm($query, $limit, $filter);
+        }
+
+        $this->guard->ensure('user.search');
         $params = [
             'FILTER' => array_merge(['FIND' => $query], $filter->toArray()),
         ];
-
-        $this->guard->ensure('user.search');
-
         $users = [];
 
         foreach ($this->paginate('user.search', $params, $limit) as $row) {
@@ -185,6 +217,52 @@ final class UserService
         }
 
         return collect($users);
+    }
+
+    /**
+     * @return Collection<int, UserData>
+     */
+    private function searchWithIm(string $query, int $limit, UserFilter $filter): Collection
+    {
+        $users = [];
+        $offset = 0;
+
+        while (count($users) < $limit) {
+            $requested = min(50, $limit - count($users));
+            $body = $this->client->call('im.search.user.list', [
+                'FIND' => $query,
+                'LIMIT' => $requested,
+                'OFFSET' => $offset,
+            ]);
+            $rows = $this->normalizeImRows($body['result'] ?? []);
+
+            if ($rows === []) {
+                break;
+            }
+
+            $added = 0;
+
+            foreach ($rows as $row) {
+                $user = UserData::fromArray($row);
+
+                if ($user->id <= 0 || ! $this->matchesFilter($user, $filter)) {
+                    continue;
+                }
+
+                if (! isset($users[$user->id])) {
+                    $users[$user->id] = $user;
+                    $added++;
+                }
+            }
+
+            $offset += count($rows);
+
+            if ($added === 0 || count($rows) < $requested) {
+                break;
+            }
+        }
+
+        return collect(array_values($users));
     }
 
     /**
@@ -200,6 +278,109 @@ final class UserService
             return collect();
         }
 
+        $departmentIds = $this->resolveDepartmentIds($departmentId, $includeNested, $fresh);
+        $filter = $filter !== null ? clone $filter : UserFilter::make()->activeOnly();
+        $method = $this->guard->methodFor('departments.employees');
+
+        if ($method === 'im.department.employees.get') {
+            return $this->inDepartmentWithIm($departmentIds, $filter);
+        }
+
+        return $this->inDepartmentClassic($departmentIds, $filter);
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function departmentEmployeeIds(int $departmentId, bool $includeNested = false, bool $fresh = false): array
+    {
+        if ($departmentId <= 0) {
+            return [];
+        }
+
+        $departmentIds = $this->resolveDepartmentIds($departmentId, $includeNested, $fresh);
+        $method = $this->guard->methodFor('departments.employees');
+
+        if ($method === 'im.department.employees.get') {
+            try {
+                $body = $this->client->call('im.department.employees.get', [
+                    'ID' => $departmentIds,
+                ]);
+
+                $ids = $this->extractImIds($body['result'] ?? []);
+
+                if ($ids !== []) {
+                    return $ids;
+                }
+            } catch (Bitrix24Exception $exception) {
+                if (! in_array($exception->reason(), [Bitrix24ErrorReason::Forbidden, Bitrix24ErrorReason::MethodNotFound], true)) {
+                    throw $exception;
+                }
+            }
+        }
+
+        return $this->inDepartmentClassic($departmentIds, UserFilter::make())->pluck('id')->all();
+    }
+
+    /**
+     * @param  list<int>  $departmentIds
+     * @return Collection<int, UserData>
+     */
+    private function inDepartmentWithIm(array $departmentIds, UserFilter $filter): Collection
+    {
+        try {
+            $body = $this->client->call('im.department.employees.get', [
+                'ID' => $departmentIds,
+                'USER_DATA' => 'Y',
+            ]);
+        } catch (Bitrix24Exception $exception) {
+            if (! in_array($exception->reason(), [Bitrix24ErrorReason::Forbidden, Bitrix24ErrorReason::MethodNotFound], true)) {
+                throw $exception;
+            }
+
+            return $this->inDepartmentClassic($departmentIds, $filter);
+        }
+
+        $users = [];
+        $seen = [];
+
+        foreach ($this->extractImUsers($body['result'] ?? []) as $row) {
+            $user = UserData::fromArray($row);
+
+            if ($user->id <= 0 || isset($seen[$user->id]) || ! $this->matchesFilter($user, $filter)) {
+                continue;
+            }
+
+            $seen[$user->id] = true;
+            $users[] = $user;
+        }
+
+        return collect($users)->sortBy('id')->values();
+    }
+
+    /**
+     * @param  list<int>  $departmentIds
+     * @return Collection<int, UserData>
+     */
+    private function inDepartmentClassic(array $departmentIds, UserFilter $filter): Collection
+    {
+        $filter = clone $filter;
+        $filter->inDepartments($departmentIds);
+        $this->guard->ensure('user.get');
+        $users = [];
+
+        foreach ($this->paginate('user.get', ['filter' => $filter->toArray()]) as $row) {
+            $users[] = UserData::fromArray($row);
+        }
+
+        return collect($users);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function resolveDepartmentIds(int $departmentId, bool $includeNested, bool $fresh): array
+    {
         $departmentIds = [$departmentId];
 
         if ($includeNested) {
@@ -210,17 +391,7 @@ final class UserService
             );
         }
 
-        $filter = $filter !== null ? clone $filter : UserFilter::make()->activeOnly();
-        $filter->inDepartments($departmentIds);
-
-        $this->guard->ensure('user.get');
-        $users = [];
-
-        foreach ($this->paginate('user.get', ['filter' => $filter->toArray()]) as $row) {
-            $users[] = UserData::fromArray($row);
-        }
-
-        return collect($users);
+        return array_values(array_unique(array_map('intval', $departmentIds)));
     }
 
     /**
@@ -300,6 +471,86 @@ final class UserService
     public function exists(int $id): bool
     {
         return $this->get($id) !== null;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function normalizeImRows(mixed $result): array
+    {
+        if (! is_array($result)) {
+            return [];
+        }
+
+        return array_values(array_filter($result, 'is_array'));
+    }
+
+    private function matchesFilter(UserData $user, UserFilter $filter): bool
+    {
+        if ($filter->active() !== null && $user->active !== $filter->active()) {
+            return false;
+        }
+
+        if ($filter->userTypeFilter() !== null && $user->userType !== $filter->userTypeFilter()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function extractImUsers(mixed $payload): array
+    {
+        $found = [];
+        $stack = [$payload];
+
+        while ($stack !== []) {
+            $current = array_pop($stack);
+
+            if (! is_array($current)) {
+                continue;
+            }
+
+            $hasId = isset($current['id']) || isset($current['ID']);
+            $hasName = isset($current['name'])
+                || isset($current['NAME'])
+                || isset($current['first_name'])
+                || isset($current['FIRST_NAME']);
+
+            if ($hasId && $hasName) {
+                $found[] = $current;
+            }
+
+            foreach ($current as $value) {
+                if (is_array($value)) {
+                    $stack[] = $value;
+                }
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function extractImIds(mixed $payload): array
+    {
+        if (! is_array($payload)) {
+            return [];
+        }
+
+        $ids = [];
+
+        array_walk_recursive($payload, static function (mixed $value) use (&$ids): void {
+            if (is_numeric($value) && (int) $value > 0) {
+                $ids[] = (int) $value;
+            }
+        });
+
+        return array_values(array_unique($ids));
     }
 
     /**
