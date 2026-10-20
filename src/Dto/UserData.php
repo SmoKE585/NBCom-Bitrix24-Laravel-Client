@@ -140,11 +140,89 @@ final readonly class UserData implements JsonSerializable
     }
 
     /**
+     * Return exactly one normalized Russian mobile number, or null.
+     *
+     * Accepts +79XXXXXXXXX, 89XXXXXXXXX, 9XXXXXXXXX and formats with spaces,
+     * brackets and dashes. Returns +79XXXXXXXXX.
+     */
+    public function mobilePhoneNumber(): ?string
+    {
+        foreach ($this->mobilePhoneCandidates() as $candidate) {
+            $normalized = self::normalizeRussianMobile($candidate);
+
+            if ($normalized !== null) {
+                return $normalized;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function jsonSerialize(): array
     {
         return $this->toArray();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function mobilePhoneCandidates(): array
+    {
+        $candidates = [
+            $this->mobilePhone,
+            $this->phones['personal_mobile'] ?? null,
+            $this->personalPhone,
+            $this->phones['personal_phone'] ?? null,
+            $this->workPhone,
+            $this->phones['work_phone'] ?? null,
+        ];
+
+        foreach ($this->phones as $key => $value) {
+            if (in_array($key, ['personal_mobile', 'personal_phone', 'work_phone'], true)) {
+                continue;
+            }
+
+            if (is_string($value) || is_numeric($value)) {
+                $candidates[] = (string) $value;
+            }
+        }
+
+        foreach ($this->customFields as $key => $value) {
+            if (is_string($key) && preg_match('/phone|mobile/i', $key) === 1 && (is_string($value) || is_numeric($value))) {
+                $candidates[] = (string) $value;
+            }
+        }
+
+        return array_values(array_unique(array_filter(
+            $candidates,
+            static fn (mixed $value): bool => is_string($value) && trim($value) !== '',
+        )));
+    }
+
+    private static function normalizeRussianMobile(string $value): ?string
+    {
+        $digits = preg_replace('/\D+/', '', $value);
+
+        if (! is_string($digits)) {
+            return null;
+        }
+
+        if (strlen($digits) === 11 && $digits[0] === '7' && $digits[1] === '9') {
+            return '+'.$digits;
+        }
+
+        if (strlen($digits) === 11 && $digits[0] === '8' && $digits[1] === '9') {
+            return '+7'.substr($digits, 1);
+        }
+
+        if (strlen($digits) === 10 && $digits[0] === '9') {
+            return '+7'.$digits;
+        }
+
+        return null;
     }
 
     private static function string(mixed $value): ?string

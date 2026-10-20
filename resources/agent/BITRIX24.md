@@ -273,6 +273,10 @@ Bitrix24::call(string $method, array $params = []): mixed // крайний сл
 | `avatarUrl` | `?string` | |
 | `customFields` | `array<string,mixed>` | остальные `UF_*` |
 
+Метод `$user->mobilePhoneNumber(): ?string` возвращает **один** нормализованный
+российский мобильный (`+79XXXXXXXXX`) или `null`. Он сам перебирает `mobilePhone`,
+`personalPhone`, `workPhone`, `phones` и `UF_*PHONE*`; массивы не возвращает.
+
 `toArray()` дополнительно содержит raw-алиасы `personal_phone` и
 `last_activity_date` для инструментов, которые работают с исходными именами Bitrix.
 

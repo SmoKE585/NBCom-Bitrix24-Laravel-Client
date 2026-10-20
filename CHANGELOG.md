@@ -3,6 +3,14 @@
 Все заметные изменения пакета. Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии — [SemVer](https://semver.org/lang/ru/).
 
+## [1.5.0] — 2026-10-20
+
+### Added
+
+- `UserData::mobilePhoneNumber(): ?string` — один нормализованный российский
+  мобильный (`+79XXXXXXXXX`) или `null`; ищет по `mobilePhone`, `personalPhone`,
+  `workPhone`, `phones` и `UF_*PHONE*`, массивы не возвращает.
+
 ## [1.4.1] — 2026-10-20
 
 ### Added

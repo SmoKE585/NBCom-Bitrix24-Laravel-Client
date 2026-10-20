@@ -91,6 +91,46 @@ final class UserDataTest extends TestCase
         self::assertTrue($user->online);
     }
 
+    public function test_finds_one_russian_mobile_number(): void
+    {
+        $user = UserData::fromArray([
+            'id' => 5,
+            'name' => 'Иван',
+            'active' => true,
+            'phones' => [
+                'work_phone' => '+7 495 000-00-00',
+                'personal_phone' => '+7 (916) 123-45-67',
+                'inner_phone' => '42',
+            ],
+        ]);
+
+        self::assertSame('+79161234567', $user->mobilePhoneNumber());
+    }
+
+    public function test_normalizes_eight_prefix_to_plus_seven(): void
+    {
+        $user = UserData::fromArray([
+            'id' => 5,
+            'name' => 'Иван',
+            'active' => true,
+            'phones' => ['personal_mobile' => '8 (903) 123-45-67'],
+        ]);
+
+        self::assertSame('+79031234567', $user->mobilePhoneNumber());
+    }
+
+    public function test_returns_null_when_there_is_no_mobile_number(): void
+    {
+        $user = UserData::fromArray([
+            'id' => 5,
+            'name' => 'Иван',
+            'active' => true,
+            'phones' => ['work_phone' => '+7 495 000-00-00'],
+        ]);
+
+        self::assertNull($user->mobilePhoneNumber());
+    }
+
     public function test_treats_inactive_and_no_as_false(): void
     {
         $user = UserData::fromArray(['ID' => 5, 'ACTIVE' => 'N', 'IS_ONLINE' => 'N']);

@@ -263,6 +263,10 @@ $team->children;    // list<DepartmentData>
 $team->path;        // list<DepartmentData>
 $team->memberCount();
 
+// Один мобильный номер из любого поля DTO (российский формат)
+$mobile = Bitrix24::users()->get(5)?->mobilePhoneNumber(); // +79161234567
+// или null, если мобильного нет
+
 // IM-поиск от 2 символов
 $users = Bitrix24::users()->search('Иван');
 $departments = Bitrix24::departments()->search('ИТ');
