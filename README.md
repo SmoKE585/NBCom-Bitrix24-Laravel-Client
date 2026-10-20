@@ -83,6 +83,88 @@ BITRIX24_CACHE_ENABLED=auto
 BITRIX24_CACHE_TTL=300
 ```
 
+---
+
+## Методы Bitrix24 и права вебхука
+
+Пакет использует перечисленные ниже методы. Для webhook нужно включить
+соответствующие scopes в его настройках.
+
+### Все методы
+
+| Метод | Где используется | Нужный scope |
+|---|---|---|
+| `scope` | проверка токена и списка прав | basic, доступен всегда |
+| `methods` | fallback-список доступных методов | basic, доступен всегда |
+| `method.get` | проверка доступности конкретного метода | basic, доступен всегда |
+| `batch` | пакетная проверка `method.get` | basic, доступен всегда |
+| `user.get` | пользователь по ID / email / логину, `getMany()` | `user` |
+| `user.current` | `Bitrix24::me()` | `user` |
+| `user.search` | fallback поиска, если IM-поиск недоступен | `user` |
+| `department.get` | подразделение, дерево, `getMany()` | `department` |
+| `im.search.user.list` | основной поиск пользователей | `im` |
+| `im.search.department.list` | основной поиск подразделений | `im` |
+| `im.department.employees.get` | сотрудники и IDs сотрудников подразделения | `im` |
+| `im.notify.system.add` | системные уведомления | `im` |
+| `im.notify.personal.add` | личные уведомления | `im` |
+| `im.message.add` | сообщения в личный чат, `KEYBOARD`/`ATTACH` | `im` |
+| `im.notify` | fallback системных/личных уведомлений | `im` |
+| `log.blogpost.add` | живая лента, только при `features.live_feed = true` | `log` |
+
+`scope`, `methods`, `method.get` и `batch` относятся к basic-методам: отдельный
+scope для них в webhook выбирать не нужно.
+
+### Минимальный набор scopes
+
+Для настроек по умолчанию (`users`, `departments`, все уведомления):
+
+- `user`
+- `department`
+- `im`
+
+Если включена живая лента:
+
+- дополнительно `log`
+
+Пакет использует `im` не только для уведомлений, но и для поиска пользователей,
+поиска подразделений и списка сотрудников. Поэтому `im` нужен даже в проектах,
+где уведомления не отправляются, но работают поиск или сотрудники.
+
+| Фича | Нужные scopes |
+|---|---|
+| `features.users` | `user`, `im` |
+| `features.departments` | `department`, `im` |
+| `features.notifications` | `im` |
+| `features.live_feed` | `log` |
+
+Если отключить `features.users` и `features.departments`, для одних уведомлений
+достаточно `im`. Если отключить уведомления, `im` всё равно останется нужен
+для IM-поиска и сотрудников.
+
+`user_brief` и `user_basic` не рекомендуются: они отдают меньше полей, а пакет
+рассчитывает на полный scope `user`.
+
+### Как создать webhook
+
+1. Bitrix24 → **Настройки → Разработчикам → Другое → Входящий вебхук**.
+2. Выбери сервисного пользователя. Лучше отдельного, а не администратора.
+3. Отметь scopes: `user`, `department`, `im`; при живой ленте — ещё `log`.
+4. Скопируй полный URL вида `https://portal.example.ru/rest/1/xxxxxxxx/`.
+5. Положи его в `BITRIX24_ENDPOINT` (или в старый `BITRIX24_WEBHOOK_URL`).
+6. Выполни:
+
+```bash
+php artisan bitrix24:check --refresh --smoke
+```
+
+После изменения scopes в webhook выполни `php artisan bitrix24:forget` и
+повтори `bitrix24:check --refresh`.
+
+`BITRIX24_CLIENT_ID` — это не scope. Он нужен только для `TAG`/`SUB_TAG`
+в уведомлениях через webhook.
+
+---
+
 Проверь webhook:
 
 ```bash
@@ -95,10 +177,11 @@ php artisan bitrix24:check --smoke
 Проверка проверяет:
 
 1. валиден ли токен;
-2. выданы ли scopes `user`, `department`, `im`;
+2. выданы ли scopes `user`, `department`, `im` (и `log`, если включена живая лента);
 3. доступны ли `user.get`, `user.current`, `department.get`,
    `im.search.user.list`, `im.search.department.list`, `im.department.employees.get`,
-   `im.notify.system.add`, `im.notify.personal.add`, `im.message.add`;
+   `im.notify.system.add`, `im.notify.personal.add`, `im.message.add`,
+   `log.blogpost.add` (если включена живая лента);
 4. может ли webhook реально читать данные (`--smoke`).
 
 Результат кладётся в `storage/app/bitrix24/capabilities.json`. На каждый запрос
