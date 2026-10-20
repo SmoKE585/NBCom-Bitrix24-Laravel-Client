@@ -20,15 +20,17 @@ final class CapabilityRegistry
         $methods = [];
 
         if ((bool) ($features['users'] ?? true)) {
-            $methods['users.get'] = ['user.get'];
-            $methods['users.search'] = ['im.search.user.list', 'user.search'];
-            $methods['users.current'] = ['user.current'];
+            $methods['users.get'] = ['im.user.get'];
+            $methods['users.list'] = ['im.user.list.get'];
+            $methods['users.search'] = ['im.search.user.list'];
+            $methods['users.current'] = ['im.user.get'];
         }
 
         if ((bool) ($features['departments'] ?? true)) {
-            $methods['departments.get'] = ['department.get'];
-            $methods['departments.search'] = ['im.search.department.list', 'department.get'];
-            $methods['departments.employees'] = ['im.department.employees.get', 'user.get'];
+            $methods['departments.get'] = ['im.department.get'];
+            $methods['departments.list'] = ['im.search.department.list'];
+            $methods['departments.search'] = ['im.search.department.list'];
+            $methods['departments.employees'] = ['im.department.employees.get'];
         }
 
         $notifications = $features['notifications'] ?? [];
@@ -63,15 +65,9 @@ final class CapabilityRegistry
         $features = is_array($features) ? $features : [];
         $scopes = [];
 
-        if ((bool) ($features['users'] ?? true)) {
-            $scopes[] = 'user';
-        }
-
-        if ((bool) ($features['departments'] ?? true)) {
-            $scopes[] = 'department';
-        }
-
-        if ((bool) ($features['users'] ?? true) || (bool) ($features['departments'] ?? true)) {
+        if ((bool) ($features['users'] ?? true)
+            || (bool) ($features['departments'] ?? true)
+        ) {
             $scopes[] = 'im';
         }
 

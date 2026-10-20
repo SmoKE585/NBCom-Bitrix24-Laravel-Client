@@ -82,7 +82,6 @@ $departments = Bitrix24::departments()->search('ИТ');
 - принимают `limit`, по умолчанию 50.
 
 Оба поиска идут через IM: `im.search.user.list` и `im.search.department.list`.
-Если IM-метод недоступен, пакет откатывается на `user.search` / `department.get`.
 
 ## Сотрудники подразделения
 

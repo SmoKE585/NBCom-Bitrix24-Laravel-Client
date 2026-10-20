@@ -36,12 +36,11 @@ final class DepartmentLookup
             }
         }
 
-        $this->guard->ensure('department.get');
-        $body = $this->client->call('department.get', [
-            'ID' => $id,
+        $this->guard->ensure('im.department.get');
+        $body = $this->client->call('im.department.get', [
+            'ID' => [$id],
         ]);
-        $rows = $body['result'] ?? [];
-        $row = is_array($rows) ? ($rows[0] ?? null) : null;
+        $row = $this->extractImDepartments($body['result'] ?? [])[0] ?? null;
 
         if (! is_array($row)) {
             return null;
@@ -71,15 +70,16 @@ final class DepartmentLookup
             }
         }
 
-        $this->guard->ensure('department.get');
+        $this->guard->ensure('im.search.department.list');
         $rows = [];
-        $start = 0;
+        $offset = 0;
 
         do {
-            $body = $this->client->call('department.get', [
-                'sort' => 'SORT',
-                'order' => 'ASC',
-                'start' => $start,
+            $body = $this->client->call('im.search.department.list', [
+                'FIND' => '',
+                'LIMIT' => 50,
+                'OFFSET' => $offset,
+                'USER_DATA' => 'Y',
             ]);
             $chunk = $body['result'] ?? [];
 
@@ -87,18 +87,17 @@ final class DepartmentLookup
                 break;
             }
 
+            $chunk = array_values(array_filter($chunk, 'is_array'));
+
             foreach ($chunk as $row) {
-                if (is_array($row)) {
-                    $rows[] = DepartmentData::fromArray($row);
-                }
+                $rows[] = DepartmentData::fromArray($row);
             }
 
             $count = count($chunk);
-            $start += $count;
-            $total = isset($body['total']) ? (int) $body['total'] : null;
-        } while ($count === 50 && ($total === null || $start < $total));
+            $offset += $count;
+        } while ($count === 50);
 
-        $collection = collect($rows)->values();
+        $collection = collect($this->withParents($rows))->values();
         $this->cache->put($key, $collection->map(static fn (DepartmentData $department): array => $department->toArray())->all());
 
         return $collection;
@@ -158,5 +157,84 @@ final class DepartmentLookup
             ->filter(static fn (DepartmentData $department): bool => mb_stripos($department->name, $query) !== false)
             ->take($limit)
             ->values();
+    }
+
+    /**
+     * IM returns a human-readable full_name ("Backend / IT / Company") but no
+     * parent id. Resolve the parent by the previous path segment.
+     *
+     * @param  list<DepartmentData>  $departments
+     * @return list<DepartmentData>
+     */
+    private function withParents(array $departments): array
+    {
+        $idsByName = [];
+
+        foreach ($departments as $department) {
+            if ($department->name !== '' && ! isset($idsByName[$department->name])) {
+                $idsByName[$department->name] = $department->id;
+            }
+        }
+
+        $result = [];
+
+        foreach ($departments as $department) {
+            $parentId = $department->parentId;
+
+            if ($parentId === null && $department->fullName !== null) {
+                $parts = array_values(array_filter(array_map('trim', explode('/', $department->fullName))));
+                array_shift($parts);
+                $parentName = $parts[0] ?? null;
+                $parentId = $parentName !== null ? ($idsByName[$parentName] ?? null) : null;
+            }
+
+            $result[] = new DepartmentData(
+                id: $department->id,
+                name: $department->name,
+                parentId: $parentId,
+                sort: $department->sort,
+                headUserId: $department->headUserId,
+                customFields: $department->customFields,
+                fullName: $department->fullName,
+                managerUserId: $department->managerUserId,
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function extractImDepartments(mixed $payload): array
+    {
+        $found = [];
+        $stack = [$payload];
+
+        while ($stack !== []) {
+            $current = array_pop($stack);
+
+            if (! is_array($current)) {
+                continue;
+            }
+
+            $hasId = isset($current['id']) || isset($current['ID']);
+            $isDepartment = isset($current['full_name'])
+                || isset($current['FULL_NAME'])
+                || isset($current['manager_user_id'])
+                || isset($current['PARENT']);
+
+            if ($hasId && $isDepartment) {
+                $found[] = $current;
+            }
+
+            foreach ($current as $value) {
+                if (is_array($value)) {
+                    $stack[] = $value;
+                }
+            }
+        }
+
+        return $found;
     }
 }

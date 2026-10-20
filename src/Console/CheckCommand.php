@@ -14,7 +14,7 @@ final class CheckCommand extends Command
 {
     protected $signature = 'bitrix24:check
         {--refresh : Re-check scopes and methods even if the snapshot is fresh}
-        {--smoke : Run safe read-only calls (user.current, department.get)}
+        {--smoke : Run safe read-only calls (im.user.get, im.search.department.list)}
         {--json : Output machine-readable JSON}';
 
     protected $description = 'Check Bitrix24 webhook scopes and method availability.';
@@ -32,8 +32,8 @@ final class CheckCommand extends Command
 
         if ((bool) $this->option('smoke')) {
             foreach ([
-                'user.current' => [],
-                'department.get' => ['start' => 0],
+                'im.user.get' => [],
+                'im.search.department.list' => ['FIND' => '', 'LIMIT' => 1],
             ] as $method => $params) {
                 try {
                     $client->call($method, $params, RetryPolicy::none());

@@ -35,7 +35,7 @@
   "strategy": "method.get",
   "scopes": ["user", "department", "im"],
   "methods": {
-    "user.get": {"exists": true, "available": true}
+    "im.user.get": {"exists": true, "available": true}
   },
   "chosen": {
     "notifications.system": "im.notify.system.add"

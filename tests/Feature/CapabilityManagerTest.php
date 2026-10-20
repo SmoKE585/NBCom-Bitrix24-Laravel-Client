@@ -39,7 +39,7 @@ final class CapabilityManagerTest extends TestCase
 
         self::assertSame('disabled', $manager->snapshot()->strategy);
         $manager->ensure('anything');
-        self::assertSame('user.get', $manager->methodFor('users.get'));
+        self::assertSame('im.user.get', $manager->methodFor('users.get'));
     }
 
     public function test_snapshot_is_reused_without_network_calls(): void

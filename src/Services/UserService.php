@@ -74,13 +74,9 @@ final class UserService
             }
         }
 
-        $this->guard->ensure('user.get');
-        $body = $this->client->call('user.get', [
-            'filter' => ['ID' => $id],
-            'select' => self::SELECT,
-        ]);
-        $rows = $body['result'] ?? [];
-        $row = is_array($rows) ? ($rows[0] ?? null) : null;
+        $this->guard->ensure('im.user.get');
+        $body = $this->client->call('im.user.get', ['ID' => $id]);
+        $row = $this->extractImUsers($body['result'] ?? [])[0] ?? null;
 
         if (! is_array($row)) {
             return null;
@@ -100,7 +96,7 @@ final class UserService
             throw new Bitrix24NotFoundException(
                 message: "Bitrix24 user [{$id}] was not found.",
                 reason: Bitrix24ErrorReason::NotFound,
-                method: 'user.get',
+                method: 'im.user.get',
                 context: ['user_id' => $id],
             );
         }
@@ -123,13 +119,22 @@ final class UserService
             return UserData::fromArray($cached);
         }
 
-        $this->guard->ensure('user.get');
-        $body = $this->client->call('user.get', [
-            'filter' => ['EMAIL' => $email],
-            'select' => self::SELECT,
+        $this->guard->ensure('im.search.user.list');
+        $body = $this->client->call('im.search.user.list', [
+            'FIND' => $email,
+            'LIMIT' => 50,
         ]);
-        $rows = $body['result'] ?? [];
-        $row = is_array($rows) ? ($rows[0] ?? null) : null;
+        $row = null;
+
+        foreach ($this->extractImUsers($body['result'] ?? []) as $candidate) {
+            $user = UserData::fromArray($candidate);
+
+            if ($user->email !== null && strcasecmp($user->email, $email) === 0) {
+                $row = $candidate;
+
+                break;
+            }
+        }
 
         if (! is_array($row)) {
             return null;
@@ -149,13 +154,12 @@ final class UserService
             return null;
         }
 
-        $this->guard->ensure('user.get');
-        $body = $this->client->call('user.get', [
-            'filter' => ['LOGIN' => $login],
-            'select' => self::SELECT,
+        $this->guard->ensure('im.search.user.list');
+        $body = $this->client->call('im.search.user.list', [
+            'FIND' => $login,
+            'LIMIT' => 50,
         ]);
-        $rows = $body['result'] ?? [];
-        $row = is_array($rows) ? ($rows[0] ?? null) : null;
+        $row = $this->extractImUsers($body['result'] ?? [])[0] ?? null;
 
         return is_array($row) ? UserData::fromArray($row) : null;
     }
@@ -166,21 +170,33 @@ final class UserService
      */
     public function getMany(array $ids): Collection
     {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
+
+        if ($ids === []) {
+            return collect();
+        }
+
+        $this->guard->ensure('im.user.list.get');
+        $body = $this->client->call('im.user.list.get', [
+            'ID' => $ids,
+            'RESULT_TYPE' => 'array',
+        ]);
+        $byId = [];
+
+        foreach ($this->extractImUsers($body['result'] ?? []) as $row) {
+            $user = UserData::fromArray($row);
+
+            if ($user->id > 0) {
+                $byId[$user->id] = $user;
+                $this->cache->put('user:'.$user->id, $user->toArray());
+            }
+        }
+
         $users = [];
-        $seen = [];
 
         foreach ($ids as $id) {
-            $id = (int) $id;
-
-            if ($id <= 0 || isset($seen[$id])) {
-                continue;
-            }
-
-            $user = $this->get($id);
-
-            if ($user !== null) {
-                $seen[$id] = true;
-                $users[] = $user;
+            if (isset($byId[$id])) {
+                $users[] = $byId[$id];
             }
         }
 
@@ -427,12 +443,21 @@ final class UserService
      */
     public function all(?UserFilter $filter = null): LazyCollection
     {
-        $params = $filter !== null ? ['filter' => $filter->toArray()] : [];
-        $this->guard->ensure('user.get');
+        $ids = [];
 
-        return LazyCollection::make(function () use ($params): Generator {
-            foreach ($this->paginate('user.get', $params) as $row) {
-                yield UserData::fromArray($row);
+        foreach ($this->departments->all()->pluck('id') as $departmentId) {
+            $ids = array_merge($ids, $this->departmentEmployeeIds((int) $departmentId));
+        }
+
+        $users = $this->getMany(array_values(array_unique($ids)));
+
+        if ($filter !== null) {
+            $users = $users->filter(fn (UserData $user): bool => $this->matchesFilter($user, $filter));
+        }
+
+        return LazyCollection::make(function () use ($users): Generator {
+            foreach ($users as $user) {
+                yield $user;
             }
         });
     }
@@ -450,15 +475,15 @@ final class UserService
             }
         }
 
-        $this->guard->ensure('user.current');
-        $body = $this->client->call('user.current');
-        $row = $body['result'] ?? null;
+        $this->guard->ensure('im.user.get');
+        $body = $this->client->call('im.user.get');
+        $row = $this->extractImUsers($body['result'] ?? [])[0] ?? null;
 
         if (! is_array($row)) {
             throw new Bitrix24NotFoundException(
                 message: 'Bitrix24 did not return the current user.',
                 reason: Bitrix24ErrorReason::NotFound,
-                method: 'user.current',
+                method: 'im.user.get',
             );
         }
 

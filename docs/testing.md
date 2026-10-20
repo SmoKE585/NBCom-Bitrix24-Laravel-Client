@@ -34,9 +34,9 @@ public function test_it_sends_a_notification(): void
 ## Assertions
 
 ```php
-$fake->assertCalled('user.get');
-$fake->assertNotCalled('user.get');
-$fake->assertCalledCount('user.get', 2);
+$fake->assertCalled('im.user.get');
+$fake->assertNotCalled('im.user.get');
+$fake->assertCalledCount('im.user.get', 2);
 $fake->assertNothingCalled();
 $fake->recorded(); // список вызовов
 ```
@@ -47,7 +47,7 @@ $fake->recorded(); // список вызовов
 
 ```php
 Bitrix24::fake([
-    'user.get' => function (array $params): array {
+    'im.user.get' => function (array $params): array {
         $start = (int) ($params['start'] ?? 0);
 
         return [

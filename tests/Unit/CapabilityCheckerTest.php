@@ -16,22 +16,28 @@ final class CapabilityCheckerTest extends TestCase
     public function test_checks_methods_with_method_get_and_uses_fallbacks(): void
     {
         $client = new FakeClient([
-            'scope' => ['result' => ['user', 'department', 'im']],
+            'scope' => ['result' => ['im']],
             'methods' => ['result' => [
                 'method.get',
-                'user.get',
-                'user.search',
-                'user.current',
-                'department.get',
+                'im.user.get',
+                'im.user.list.get',
+                'im.search.user.list',
+                'im.department.get',
+                'im.search.department.list',
+                'im.department.employees.get',
+                'im.department.managers.get',
                 'im.notify.system.add',
                 'im.notify.personal.add',
                 'im.message.add',
             ]],
             'batch' => $this->batchResponse([
-                'user.get',
-                'user.search',
-                'user.current',
-                'department.get',
+                'im.user.get',
+                'im.user.list.get',
+                'im.search.user.list',
+                'im.department.get',
+                'im.search.department.list',
+                'im.department.employees.get',
+                'im.department.managers.get',
                 'im.notify',
                 'im.notify.personal.add',
                 'im.message.add',
@@ -50,32 +56,31 @@ final class CapabilityCheckerTest extends TestCase
     public function test_reports_missing_scopes_and_methods(): void
     {
         $client = new FakeClient([
-            'scope' => ['result' => ['user']],
-            'methods' => ['result' => ['method.get', 'user.get', 'user.search', 'user.current']],
-            'batch' => $this->batchResponse(['user.get', 'user.search', 'user.current']),
+            'scope' => ['result' => []],
+            'methods' => ['result' => ['method.get']],
+            'batch' => $this->batchResponse([]),
         ]);
 
         $snapshot = $this->checker($client)->check();
 
-        self::assertContains('department', $snapshot->missingScopes);
         self::assertContains('im', $snapshot->missingScopes);
-        self::assertContains('department.get', $snapshot->missingMethods);
+        self::assertContains('im.user.get', $snapshot->missingMethods);
         self::assertTrue($snapshot->hasMissing());
     }
 
     public function test_falls_back_to_methods_list_on_old_portals(): void
     {
         $client = new FakeClient([
-            'scope' => ['result' => ['user']],
-            'methods' => ['result' => ['user.get', 'user.search', 'user.current']],
+            'scope' => ['result' => ['im']],
+            'methods' => ['result' => ['im.user.get', 'im.user.list.get', 'im.search.user.list']],
             'method.get' => ['error' => 'ERROR_METHOD_NOT_FOUND', 'error_description' => 'Method not found!'],
         ]);
 
         $snapshot = $this->checker($client)->check();
 
         self::assertSame('methods', $snapshot->strategy);
-        self::assertSame('user.get', $snapshot->chosen['users.get']);
-        self::assertContains('department', $snapshot->missingScopes);
+        self::assertSame('im.user.get', $snapshot->chosen['users.get']);
+        self::assertContains('im.department.get', $snapshot->missingMethods);
     }
 
     private function checker(FakeClient $client): CapabilityChecker

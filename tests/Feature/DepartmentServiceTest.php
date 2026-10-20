@@ -14,14 +14,15 @@ use PHPUnit\Framework\TestCase;
 
 final class DepartmentServiceTest extends TestCase
 {
-    public function test_tree_children_and_path(): void
+    public function test_all_returns_im_departments(): void
     {
         $service = $this->service($this->client());
 
+        self::assertSame([1, 2, 3], $service->all()->pluck('id')->all());
+        self::assertSame('IT / Company', $service->get(2)?->fullName);
         self::assertSame([1], $service->tree()->roots()->pluck('id')->all());
-        self::assertSame([2], $service->childrenOf(1)->pluck('id')->all());
-        self::assertSame([2, 3], $service->descendantsOf(1)->pluck('id')->all());
-        self::assertSame([1, 2, 3], array_map(static fn ($department): int => $department->id, $service->pathTo(3)));
+        self::assertSame([2], $service->tree()->childrenOf(1)->pluck('id')->all());
+        self::assertSame([1, 2, 3], array_map(static fn ($department): int => $department->id, $service->tree()->pathTo(3)));
     }
 
     public function test_head_of_department(): void
@@ -29,62 +30,40 @@ final class DepartmentServiceTest extends TestCase
         $service = $this->service($this->client());
 
         self::assertSame(20, $service->headOf(2)?->id);
-        self::assertNull($service->headOf(3));
+        self::assertSame(30, $service->headOf(3)?->id);
     }
 
-    public function test_members(): void
-    {
-        $client = $this->client();
-        $service = $this->service($client);
-
-        $members = $service->members(2);
-
-        self::assertCount(1, $members);
-        self::assertSame(10, $members->first()?->id);
-    }
-
-    public function test_employee_ids_use_im_department_employees(): void
+    public function test_members_and_employee_ids(): void
     {
         $client = $this->client();
         $service = $this->service($client);
 
         self::assertSame([10], $service->employeeIds(2));
-        self::assertCount(1, $client->callsFor('im.department.employees.get'));
+        self::assertSame([10], $service->members(2)->pluck('id')->all());
+        self::assertCount(2, $client->callsFor('im.department.employees.get'));
     }
 
-    public function test_search_finds_partial_names_and_requires_two_characters(): void
+    public function test_search_uses_im_search(): void
     {
-        $service = $this->service($this->client());
+        $client = $this->client();
+        $service = $this->service($client);
 
         self::assertSame([2], $service->search('it')->pluck('id')->all());
         self::assertSame([3], $service->search('back')->pluck('id')->all());
         self::assertCount(0, $service->search('i'));
     }
 
-    public function test_heads_of_nested_departments(): void
+    public function test_heads_of_department(): void
     {
         $service = $this->service($this->client());
 
-        self::assertSame([20], $service->headsOf(1)->pluck('id')->all());
         self::assertSame([20], $service->headsOf(2, includeNested: false)->pluck('id')->all());
+        self::assertSame([10, 20, 30], $service->headsOf(1)->pluck('id')->all());
     }
 
-    public function test_management_chain_goes_up_to_the_root(): void
+    public function test_management_chain_uses_im_departments(): void
     {
-        $client = new FakeClient([
-            'department.get' => static fn (array $params): array => isset($params['ID'])
-                ? ['result' => []]
-                : ['result' => [
-                    ['ID' => 1, 'NAME' => 'Company', 'PARENT' => false, 'SORT' => 100, 'UF_HEAD' => 10],
-                    ['ID' => 2, 'NAME' => 'IT', 'PARENT' => 1, 'SORT' => 200, 'UF_HEAD' => 20],
-                    ['ID' => 3, 'NAME' => 'Backend', 'PARENT' => 2, 'SORT' => 300, 'UF_HEAD' => 30],
-                ], 'total' => 3],
-            'user.get' => static fn (array $params): array => [
-                'result' => [['ID' => (int) $params['filter']['ID'], 'NAME' => 'User']],
-            ],
-        ]);
-
-        $chain = $this->service($client)->managementChainOf(3);
+        $chain = $this->service($this->client())->managementChainOf(3);
 
         self::assertSame([30, 20, 10], $chain->pluck('id')->all());
     }
@@ -103,43 +82,40 @@ final class DepartmentServiceTest extends TestCase
 
     private function client(): FakeClient
     {
+        $departments = [
+            ['id' => 1, 'name' => 'Company', 'full_name' => 'Company', 'manager_user_id' => 10],
+            ['id' => 2, 'name' => 'IT', 'full_name' => 'IT / Company', 'manager_user_id' => 20],
+            ['id' => 3, 'name' => 'Backend', 'full_name' => 'Backend / IT / Company', 'manager_user_id' => 30],
+        ];
+
         return new FakeClient([
-            'department.get' => static function (array $params): array {
-                if (isset($params['ID'])) {
-                    $id = (int) $params['ID'];
+            'im.department.get' => static function (array $params) use ($departments): array {
+                $id = (int) ($params['ID'][0] ?? 0);
 
-                    if ($id === 2) {
-                        return ['result' => [
-                            ['ID' => 2, 'NAME' => 'IT', 'PARENT' => 1, 'SORT' => 200, 'UF_HEAD' => 20],
-                        ]];
-                    }
-
-                    return ['result' => [
-                        ['ID' => 3, 'NAME' => 'Backend', 'PARENT' => 2, 'SORT' => 300],
-                    ]];
-                }
-
-                return ['result' => [
-                    ['ID' => 1, 'NAME' => 'Company', 'PARENT' => false, 'SORT' => 100],
-                    ['ID' => 2, 'NAME' => 'IT', 'PARENT' => 1, 'SORT' => 200, 'UF_HEAD' => 20],
-                    ['ID' => 3, 'NAME' => 'Backend', 'PARENT' => 2, 'SORT' => 300],
-                ], 'total' => 3];
+                return ['result' => array_values(array_filter(
+                    $departments,
+                    static fn (array $row): bool => $row['id'] === $id,
+                ))];
             },
-            'user.get' => static function (array $params): array {
-                $id = isset($params['filter']['ID']) ? (int) $params['filter']['ID'] : 10;
+            'im.search.department.list' => static function (array $params) use ($departments): array {
+                $find = (string) ($params['FIND'] ?? '');
 
-                return ['result' => [['ID' => $id, 'NAME' => $id === 20 ? 'Head' : 'Alice', 'UF_DEPARTMENT' => [2]]]];
+                return ['result' => array_values(array_filter(
+                    $departments,
+                    static fn (array $row): bool => $find === '' || mb_stripos($row['name'], $find) !== false,
+                ))];
             },
-            'im.search.department.list' => static fn (array $params): array => [
-                'result' => array_values(array_filter([
-                    ['ID' => 2, 'NAME' => 'IT', 'FULL_NAME' => 'IT / Company', 'MANAGER_USER_ID' => 20],
-                    ['ID' => 3, 'NAME' => 'Backend', 'FULL_NAME' => 'Backend / IT'],
-                ], static fn (array $row): bool => mb_stripos($row['NAME'], (string) $params['FIND']) !== false)),
-            ],
             'im.department.employees.get' => static fn (array $params): array => [
                 'result' => ($params['USER_DATA'] ?? null) === 'Y'
                     ? ['2' => [['id' => 10, 'name' => 'Alice', 'active' => true, 'departments' => [2]]]]
                     : ['2' => [10]],
+            ],
+            'im.user.get' => static fn (array $params): array => [
+                'result' => [
+                    'id' => (int) ($params['ID'] ?? 10),
+                    'name' => 'User',
+                    'active' => true,
+                ],
             ],
         ]);
     }

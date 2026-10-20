@@ -92,18 +92,20 @@ BITRIX24_CACHE_TTL=300
 
 ### Все методы
 
+Пакет получает данные о пользователях, подразделениях, поиске и статусе
+только через `im.*`.
+
 | Метод | Где используется | Нужный scope |
 |---|---|---|
 | `scope` | проверка токена и списка прав | basic, доступен всегда |
 | `methods` | fallback-список доступных методов | basic, доступен всегда |
 | `method.get` | проверка доступности конкретного метода | basic, доступен всегда |
 | `batch` | пакетная проверка `method.get` | basic, доступен всегда |
-| `user.get` | пользователь по ID / email / логину, `getMany()` | `user` |
-| `user.current` | `Bitrix24::me()` | `user` |
-| `user.search` | fallback поиска, если IM-поиск недоступен | `user` |
-| `department.get` | подразделение, дерево, `getMany()` | `department` |
-| `im.search.user.list` | основной поиск пользователей | `im` |
-| `im.search.department.list` | основной поиск подразделений | `im` |
+| `im.user.get` | пользователь по ID и `Bitrix24::me()` | `im` |
+| `im.user.list.get` | несколько пользователей по IDs (`getMany()`) | `im` |
+| `im.search.user.list` | поиск пользователей | `im` |
+| `im.department.get` | подразделение по ID и `getMany()` | `im` |
+| `im.search.department.list` | список, поиск и дерево подразделений | `im` |
 | `im.department.employees.get` | сотрудники и IDs сотрудников подразделения | `im` |
 | `im.notify.system.add` | системные уведомления | `im` |
 | `im.notify.personal.add` | личные уведомления | `im` |
@@ -118,37 +120,27 @@ scope для них в webhook выбирать не нужно.
 
 Для настроек по умолчанию (`users`, `departments`, все уведомления):
 
-- `user`
-- `department`
 - `im`
 
 Если включена живая лента:
 
 - дополнительно `log`
 
-Пакет использует `im` не только для уведомлений, но и для поиска пользователей,
-поиска подразделений и списка сотрудников. Поэтому `im` нужен даже в проектах,
-где уведомления не отправляются, но работают поиск или сотрудники.
+Пакет использует только `im` для пользователей, подразделений, поиска,
+сотрудников и уведомлений. Scope `user` и `department` не нужны.
 
 | Фича | Нужные scopes |
 |---|---|
-| `features.users` | `user`, `im` |
-| `features.departments` | `department`, `im` |
+| `features.users` | `im` |
+| `features.departments` | `im` |
 | `features.notifications` | `im` |
 | `features.live_feed` | `log` |
-
-Если отключить `features.users` и `features.departments`, для одних уведомлений
-достаточно `im`. Если отключить уведомления, `im` всё равно останется нужен
-для IM-поиска и сотрудников.
-
-`user_brief` и `user_basic` не рекомендуются: они отдают меньше полей, а пакет
-рассчитывает на полный scope `user`.
 
 ### Как создать webhook
 
 1. Bitrix24 → **Настройки → Разработчикам → Другое → Входящий вебхук**.
 2. Выбери сервисного пользователя. Лучше отдельного, а не администратора.
-3. Отметь scopes: `user`, `department`, `im`; при живой ленте — ещё `log`.
+3. Отметь scope `im`; при живой ленте — ещё `log`.
 4. Скопируй полный URL вида `https://portal.example.ru/rest/1/xxxxxxxx/`.
 5. Положи его в `BITRIX24_ENDPOINT` (или в старый `BITRIX24_WEBHOOK_URL`).
 6. Выполни:
@@ -177,9 +169,9 @@ php artisan bitrix24:check --smoke
 Проверка проверяет:
 
 1. валиден ли токен;
-2. выданы ли scopes `user`, `department`, `im` (и `log`, если включена живая лента);
-3. доступны ли `user.get`, `user.current`, `department.get`,
-   `im.search.user.list`, `im.search.department.list`, `im.department.employees.get`,
+2. выдан ли scope `im` (и `log`, если включена живая лента);
+3. доступны ли `im.user.get`, `im.user.list.get`, `im.search.user.list`,
+   `im.department.get`, `im.search.department.list`, `im.department.employees.get`,
    `im.notify.system.add`, `im.notify.personal.add`, `im.message.add`,
    `log.blogpost.add` (если включена живая лента);
 4. может ли webhook реально читать данные (`--smoke`).
@@ -411,9 +403,13 @@ Snapshot содержит только host, user id, scopes и статусы �
 use Nbcom\Bitrix24\Facades\Bitrix24;
 
 Bitrix24::fake([
-    'user.get' => [
+    'im.user.get' => [
         'result' => [
-            ['ID' => '5', 'NAME' => 'Иван', 'LAST_NAME' => 'Иванов'],
+            'id' => 5,
+            'name' => 'Иванов Иван',
+            'first_name' => 'Иван',
+            'last_name' => 'Иванов',
+            'active' => true,
         ],
     ],
 ]);

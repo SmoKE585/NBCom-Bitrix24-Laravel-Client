@@ -43,7 +43,7 @@ final class DepartmentService
             throw new Bitrix24NotFoundException(
                 message: "Bitrix24 department [{$id}] was not found.",
                 reason: Bitrix24ErrorReason::NotFound,
-                method: 'department.get',
+                method: 'im.department.get',
                 context: ['department_id' => $id],
             );
         }
@@ -183,7 +183,7 @@ final class DepartmentService
             }
         }
 
-        return collect($heads);
+        return collect($heads)->sortBy('id')->values();
     }
 
     /**

@@ -18,10 +18,10 @@ final class UserServiceTest extends TestCase
     {
         $calls = 0;
         $client = new FakeClient([
-            'user.get' => static function () use (&$calls): array {
+            'im.user.get' => static function () use (&$calls): array {
                 $calls++;
 
-                return ['result' => [['ID' => 5, 'NAME' => $calls === 1 ? 'First' : 'Second']]];
+                return ['result' => ['id' => 5, 'name' => $calls === 1 ? 'First' : 'Second', 'first_name' => $calls === 1 ? 'First' : 'Second', 'active' => true]];
             },
         ]);
         $users = $this->users($client, TestCache::enabled());
@@ -36,15 +36,17 @@ final class UserServiceTest extends TestCase
     public function test_find_by_email(): void
     {
         $client = new FakeClient([
-            'user.get' => ['result' => [['ID' => 7, 'NAME' => 'John', 'EMAIL' => 'john@example.ru']]],
+            'im.search.user.list' => ['result' => [
+                ['id' => 7, 'name' => 'John', 'email' => 'john@example.ru', 'active' => true],
+            ]],
         ]);
         $users = $this->users($client, TestCache::disabled());
 
         $user = $users->findByEmail('john@example.ru');
 
         self::assertSame(7, $user?->id);
-        $call = $client->callsFor('user.get')[0];
-        self::assertSame('john@example.ru', $call['params']['filter']['EMAIL']);
+        $call = $client->callsFor('im.search.user.list')[0];
+        self::assertSame('john@example.ru', $call['params']['FIND']);
     }
 
     public function test_search_paginates_and_respects_limit(): void
@@ -92,10 +94,12 @@ final class UserServiceTest extends TestCase
                     'total' => 2,
                 ];
             },
+            'im.search.department.list' => ['result' => [
+                ['id' => 1, 'name' => 'Company', 'full_name' => 'Company'],
+            ], 'total' => 1],
             'im.department.employees.get' => static fn (array $params): array => [
                 'result' => [
                     '1' => [['id' => 10, 'name' => 'Alice', 'active' => true, 'departments' => [1]]],
-                    '2' => [['id' => 20, 'name' => 'Bob', 'active' => true, 'departments' => [2]]],
                 ],
             ],
         ]);
@@ -103,11 +107,11 @@ final class UserServiceTest extends TestCase
 
         $members = $users->inDepartment(1, includeNested: true);
 
-        self::assertCount(2, $members);
-        self::assertSame([10, 20], $members->pluck('id')->all());
+        self::assertCount(1, $members);
+        self::assertSame([10], $members->pluck('id')->all());
 
         $call = $client->callsFor('im.department.employees.get')[0];
-        self::assertSame([1, 2], $call['params']['ID']);
+        self::assertSame([1], $call['params']['ID']);
         self::assertSame('Y', $call['params']['USER_DATA']);
     }
 
@@ -141,8 +145,8 @@ final class UserServiceTest extends TestCase
     public function test_get_many_returns_unique_users(): void
     {
         $client = new FakeClient([
-            'user.get' => static fn (array $params): array => [
-                'result' => [['id' => (int) $params['filter']['ID'], 'name' => 'User', 'active' => true]],
+            'im.user.list.get' => static fn (array $params): array => [
+                'result' => array_map(static fn (int $id): array => ['id' => $id, 'name' => 'User', 'active' => true], $params['ID']),
             ],
         ]);
         $users = $this->users($client, TestCache::disabled());
@@ -150,13 +154,13 @@ final class UserServiceTest extends TestCase
         $result = $users->getMany([5, 6, 5]);
 
         self::assertSame([5, 6], $result->pluck('id')->all());
-        self::assertCount(2, $client->callsFor('user.get'));
+        self::assertCount(1, $client->callsFor('im.user.list.get'));
     }
 
     public function test_current_user(): void
     {
         $client = new FakeClient([
-            'user.current' => ['result' => ['ID' => 1, 'NAME' => 'Admin']],
+            'im.user.get' => ['result' => ['id' => 1, 'name' => 'Admin', 'first_name' => 'Admin', 'active' => true]],
         ]);
         $users = $this->users($client, TestCache::disabled());
 

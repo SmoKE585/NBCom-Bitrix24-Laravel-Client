@@ -93,7 +93,7 @@ php artisan bitrix24:check --smoke
 php artisan bitrix24:check --json
 ```
 
-`--smoke` делает безопасные read-only вызовы `user.current` и `department.get`.
+`--smoke` делает безопасные read-only вызовы `im.user.get` и `im.search.department.list`.
 Уведомления при проверке не отправляются.
 
 ---
@@ -515,15 +515,15 @@ try {
 - `UF_HEAD` может быть `false` или `0` — пакет отдаёт `null`.
 - `LAST_LOGIN`, `DATE_REGISTER` могут быть пустой строкой — пакет отдаёт `null`.
 - `PERSONAL_PHOTO` может быть строкой URL или отсутствовать.
-- `user.get` возвращает максимум 50 записей.
+- `im.user.get` и `im.user.list.get` — основной способ получить пользователя/ей.
 - `im.search.user.list` / `im.search.department.list` требуют минимум 2 символа
   и отдают максимум 50 записей за страницу.
 - `im.department.employees.get` возвращает объект, ключ — ID подразделения;
   с `USER_DATA=Y` — сотрудников, без него — их ID.
-- `user.get` не возвращает ботов, email-пользователей, Open Channels и Replica.
+- `im.user.get` не возвращает ботов, email-пользователей, Open Channels и Replica.
 - Extranet-пользователи могут не иметь части полей; проверяй `userType`.
-- `department.get` отдаёт только `ID`, `NAME`, `SORT`, `PARENT`, `UF_HEAD`
-  и используется для дерева/карточки, а не для поиска.
+- `im.department.get` отдаёт `id`, `name`, `full_name`, `manager_user_id`;
+  `im.search.department.list` используется для списка, поиска и дерева.
 - Названия подразделений могут дублироваться; `findByName()` вернёт первое
   совпадение, для надёжности используй ID.
 
@@ -539,9 +539,13 @@ use Nbcom\Bitrix24\Facades\Bitrix24;
 public function test_it_finds_a_user(): void
 {
     Bitrix24::fake([
-        'user.get' => [
+        'im.user.get' => [
             'result' => [
-                ['ID' => '5', 'NAME' => 'Иван', 'LAST_NAME' => 'Иванов'],
+                'id' => 5,
+                'name' => 'Иванов Иван',
+                'first_name' => 'Иван',
+                'last_name' => 'Иванов',
+                'active' => true,
             ],
         ],
     ]);
@@ -597,9 +601,9 @@ php artisan bitrix24:agent-docs --stdout
 
 | Симптом | Причина | Решение |
 |---|---|---|
-| `capability` при первом вызове | В webhook не включены scopes | Включить `user`, `department`, `im` |
-| `forbidden` на `department.get` | Нет scope `department` | Добавить scope |
-| `forbidden` на уведомлениях | Нет scope `im` | Добавить scope |
+| `capability` при первом вызове | В webhook не включён scope `im` | Включить `im` |
+| `forbidden` на сотрудниках/поиске | Нет scope `im` | Добавить `im` |
+| `forbidden` на уведомлениях | Нет scope `im` | Добавить `im` |
 | `authentication` | Токен неверный/удалён | Пересоздать webhook, обновить `.env` |
 | `configuration` про HTTPS | В endpoint `http://` | Использовать `https://` |
 | `configuration` про `CLIENT_ID` | Передан `tag` без `BITRIX24_CLIENT_ID` | Задать `BITRIX24_CLIENT_ID` или убрать `tag` |

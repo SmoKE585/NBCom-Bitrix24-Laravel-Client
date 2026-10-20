@@ -3,6 +3,19 @@
 Все заметные изменения пакета. Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии — [SemVer](https://semver.org/lang/ru/).
 
+## [1.3.0] — 2026-10-20
+
+### Changed
+
+- Все чтения пользователей и подразделений переведены на `im.*`:
+  `im.user.get`, `im.user.list.get`, `im.search.user.list`,
+  `im.department.get`, `im.search.department.list`.
+- Сотрудники подразделения — только `im.department.employees.get`.
+- Capability scopes сокращены до `im` (+ `log` для живой ленты).
+- `all()` собирает пользователей через IM-подразделения и `im.user.list.get`.
+- Дерево подразделений строится по `full_name` из `im.search.department.list`.
+- README: список методов и scopes обновлён под IM.
+
 ## [1.2.1] — 2026-10-20
 
 ### Docs
