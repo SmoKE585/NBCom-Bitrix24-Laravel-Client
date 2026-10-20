@@ -12,9 +12,6 @@ final class UserFilter
 
     private ?UserType $userType = null;
 
-    /** @var list<int> */
-    private array $departmentIds = [];
-
     private ?string $name = null;
 
     private ?string $lastName = null;
@@ -57,19 +54,6 @@ final class UserFilter
     public function userType(UserType $userType): self
     {
         $this->userType = $userType;
-
-        return $this;
-    }
-
-    /**
-     * @param  list<int>  $departmentIds
-     */
-    public function inDepartments(array $departmentIds): self
-    {
-        $this->departmentIds = array_values(array_unique(array_filter(
-            array_map('intval', $departmentIds),
-            static fn (int $id): bool => $id > 0,
-        )));
 
         return $this;
     }
@@ -122,10 +106,6 @@ final class UserFilter
 
         if ($this->userType !== null) {
             $filter['USER_TYPE'] = $this->userType->value;
-        }
-
-        if ($this->departmentIds !== []) {
-            $filter['@UF_DEPARTMENT'] = $this->departmentIds;
         }
 
         if ($this->name !== null && $this->name !== '') {

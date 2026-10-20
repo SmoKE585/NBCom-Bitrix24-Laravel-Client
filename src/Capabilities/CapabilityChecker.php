@@ -80,7 +80,7 @@ final class CapabilityChecker
     private function probeMethodGet(): bool
     {
         try {
-            $body = $this->client->call('method.get', ['name' => 'user.get']);
+            $body = $this->client->call('method.get', ['name' => 'im.user.get']);
 
             return is_array($body['result'] ?? null);
         } catch (Bitrix24Exception) {

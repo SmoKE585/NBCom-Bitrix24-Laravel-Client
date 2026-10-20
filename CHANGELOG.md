@@ -3,6 +3,14 @@
 Все заметные изменения пакета. Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии — [SemVer](https://semver.org/lang/ru/).
 
+## [1.3.2] — 2026-10-20
+
+### Removed
+
+- Все fallback-вызовы `user.get`, `user.search`, `department.get` и фильтр
+  `@UF_DEPARTMENT`. Обычный пользователь без scopes `user`/`department`
+  их всё равно не выполнит, поэтому оставлен только `im.*`.
+
 ## [1.3.1] — 2026-10-20
 
 ### Added

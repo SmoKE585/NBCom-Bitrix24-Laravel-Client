@@ -11,7 +11,6 @@ use Nbcom\Bitrix24\Contracts\CapabilityGuardInterface;
 use Nbcom\Bitrix24\Contracts\ClientInterface;
 use Nbcom\Bitrix24\Dto\UserData;
 use Nbcom\Bitrix24\Enums\Bitrix24ErrorReason;
-use Nbcom\Bitrix24\Exceptions\Bitrix24Exception;
 use Nbcom\Bitrix24\Exceptions\Bitrix24NotFoundException;
 use Nbcom\Bitrix24\Support\ResultCache;
 use Nbcom\Bitrix24\Support\SearchTerm;
@@ -19,27 +18,6 @@ use Nbcom\Bitrix24\Support\UserFilter;
 
 final class UserService
 {
-    private const SELECT = [
-        'ID',
-        'ACTIVE',
-        'NAME',
-        'LAST_NAME',
-        'SECOND_NAME',
-        'EMAIL',
-        'LOGIN',
-        'WORK_POSITION',
-        'WORK_PHONE',
-        'PERSONAL_MOBILE',
-        'UF_PHONE_INNER',
-        'UF_DEPARTMENT',
-        'USER_TYPE',
-        'TIME_ZONE',
-        'LAST_LOGIN',
-        'DATE_REGISTER',
-        'IS_ONLINE',
-        'PERSONAL_PHOTO',
-    ];
-
     private bool $fresh = false;
 
     public function __construct(
@@ -216,23 +194,9 @@ final class UserService
         }
 
         $filter ??= UserFilter::make()->activeOnly();
-        $method = $this->guard->methodFor('users.search');
+        $this->guard->ensure('im.search.user.list');
 
-        if ($method === 'im.search.user.list') {
-            return $this->searchWithIm($query, $limit, $filter);
-        }
-
-        $this->guard->ensure('user.search');
-        $params = [
-            'FILTER' => array_merge(['FIND' => $query], $filter->toArray()),
-        ];
-        $users = [];
-
-        foreach ($this->paginate('user.search', $params, $limit) as $row) {
-            $users[] = UserData::fromArray($row);
-        }
-
-        return collect($users);
+        return $this->searchWithIm($query, $limit, $filter);
     }
 
     /**
@@ -296,13 +260,9 @@ final class UserService
 
         $departmentIds = $this->resolveDepartmentIds($departmentId, $includeNested, $fresh);
         $filter = $filter !== null ? clone $filter : UserFilter::make()->activeOnly();
-        $method = $this->guard->methodFor('departments.employees');
+        $this->guard->ensure('im.department.employees.get');
 
-        if ($method === 'im.department.employees.get') {
-            return $this->inDepartmentWithIm($departmentIds, $filter);
-        }
-
-        return $this->inDepartmentClassic($departmentIds, $filter);
+        return $this->inDepartmentWithIm($departmentIds, $filter);
     }
 
     /**
@@ -315,27 +275,12 @@ final class UserService
         }
 
         $departmentIds = $this->resolveDepartmentIds($departmentId, $includeNested, $fresh);
-        $method = $this->guard->methodFor('departments.employees');
+        $this->guard->ensure('im.department.employees.get');
+        $body = $this->client->call('im.department.employees.get', [
+            'ID' => $departmentIds,
+        ]);
 
-        if ($method === 'im.department.employees.get') {
-            try {
-                $body = $this->client->call('im.department.employees.get', [
-                    'ID' => $departmentIds,
-                ]);
-
-                $ids = $this->extractImIds($body['result'] ?? []);
-
-                if ($ids !== []) {
-                    return $ids;
-                }
-            } catch (Bitrix24Exception $exception) {
-                if (! in_array($exception->reason(), [Bitrix24ErrorReason::Forbidden, Bitrix24ErrorReason::MethodNotFound], true)) {
-                    throw $exception;
-                }
-            }
-        }
-
-        return $this->inDepartmentClassic($departmentIds, UserFilter::make())->pluck('id')->all();
+        return $this->extractImIds($body['result'] ?? []);
     }
 
     /**
@@ -344,19 +289,10 @@ final class UserService
      */
     private function inDepartmentWithIm(array $departmentIds, UserFilter $filter): Collection
     {
-        try {
-            $body = $this->client->call('im.department.employees.get', [
-                'ID' => $departmentIds,
-                'USER_DATA' => 'Y',
-            ]);
-        } catch (Bitrix24Exception $exception) {
-            if (! in_array($exception->reason(), [Bitrix24ErrorReason::Forbidden, Bitrix24ErrorReason::MethodNotFound], true)) {
-                throw $exception;
-            }
-
-            return $this->inDepartmentClassic($departmentIds, $filter);
-        }
-
+        $body = $this->client->call('im.department.employees.get', [
+            'ID' => $departmentIds,
+            'USER_DATA' => 'Y',
+        ]);
         $users = [];
         $seen = [];
 
@@ -372,24 +308,6 @@ final class UserService
         }
 
         return collect($users)->sortBy('id')->values();
-    }
-
-    /**
-     * @param  list<int>  $departmentIds
-     * @return Collection<int, UserData>
-     */
-    private function inDepartmentClassic(array $departmentIds, UserFilter $filter): Collection
-    {
-        $filter = clone $filter;
-        $filter->inDepartments($departmentIds);
-        $this->guard->ensure('user.get');
-        $users = [];
-
-        foreach ($this->paginate('user.get', ['filter' => $filter->toArray()]) as $row) {
-            $users[] = UserData::fromArray($row);
-        }
-
-        return collect($users);
     }
 
     /**
@@ -576,41 +494,5 @@ final class UserService
         });
 
         return array_values(array_unique($ids));
-    }
-
-    /**
-     * @param  array<string, mixed>  $params
-     * @return Generator<int, array<string, mixed>>
-     */
-    private function paginate(string $method, array $params, int $limit = PHP_INT_MAX): Generator
-    {
-        $start = 0;
-        $yielded = 0;
-
-        do {
-            $body = $this->client->call($method, array_merge($params, ['start' => $start]));
-            $rows = $body['result'] ?? [];
-
-            if (! is_array($rows) || $rows === []) {
-                return;
-            }
-
-            foreach ($rows as $row) {
-                if (! is_array($row)) {
-                    continue;
-                }
-
-                yield $row;
-                $yielded++;
-
-                if ($yielded >= $limit) {
-                    return;
-                }
-            }
-
-            $count = count($rows);
-            $start += $count;
-            $total = isset($body['total']) ? (int) $body['total'] : null;
-        } while ($count === 50 && ($total === null || $start < $total));
     }
 }
