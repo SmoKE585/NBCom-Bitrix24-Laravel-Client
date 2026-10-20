@@ -13,6 +13,7 @@ use Nbcom\Bitrix24\Dto\UserData;
 use Nbcom\Bitrix24\Enums\Bitrix24ErrorReason;
 use Nbcom\Bitrix24\Exceptions\Bitrix24NotFoundException;
 use Nbcom\Bitrix24\Support\ResultCache;
+use Nbcom\Bitrix24\Support\SearchTerm;
 use Nbcom\Bitrix24\Support\UserFilter;
 
 final class UserService
@@ -163,10 +164,10 @@ final class UserService
      */
     public function search(string $query, int $limit = 50, ?UserFilter $filter = null): Collection
     {
-        $query = trim($query);
+        $query = SearchTerm::normalize($query);
         $limit = max(0, $limit);
 
-        if ($query === '' || $limit === 0) {
+        if ($limit === 0 || SearchTerm::tooShort($query)) {
             return collect();
         }
 
@@ -220,6 +221,34 @@ final class UserService
         }
 
         return collect($users);
+    }
+
+    /**
+     * All employees of a department except the given user.
+     *
+     * @return Collection<int, UserData>
+     */
+    public function colleaguesOf(
+        int $departmentId,
+        ?int $excludeUserId = null,
+        bool $includeNested = false,
+        ?UserFilter $filter = null,
+        bool $fresh = false,
+    ): Collection {
+        $users = $this->inDepartment(
+            departmentId: $departmentId,
+            includeNested: $includeNested,
+            filter: $filter,
+            fresh: $fresh,
+        );
+
+        if ($excludeUserId === null) {
+            return $users;
+        }
+
+        return $users
+            ->reject(static fn (UserData $user): bool => $user->id === $excludeUserId)
+            ->values();
     }
 
     /**

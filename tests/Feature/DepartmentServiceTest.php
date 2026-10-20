@@ -43,6 +43,55 @@ final class DepartmentServiceTest extends TestCase
         self::assertSame(10, $members->first()?->id);
     }
 
+    public function test_search_finds_partial_names_and_requires_two_characters(): void
+    {
+        $service = $this->service($this->client());
+
+        self::assertSame([2], $service->search('it')->pluck('id')->all());
+        self::assertSame([3], $service->search('back')->pluck('id')->all());
+        self::assertCount(0, $service->search('i'));
+    }
+
+    public function test_heads_of_nested_departments(): void
+    {
+        $service = $this->service($this->client());
+
+        self::assertSame([20], $service->headsOf(1)->pluck('id')->all());
+        self::assertSame([20], $service->headsOf(2, includeNested: false)->pluck('id')->all());
+    }
+
+    public function test_management_chain_goes_up_to_the_root(): void
+    {
+        $client = new FakeClient([
+            'department.get' => static fn (array $params): array => isset($params['ID'])
+                ? ['result' => []]
+                : ['result' => [
+                    ['ID' => 1, 'NAME' => 'Company', 'PARENT' => false, 'SORT' => 100, 'UF_HEAD' => 10],
+                    ['ID' => 2, 'NAME' => 'IT', 'PARENT' => 1, 'SORT' => 200, 'UF_HEAD' => 20],
+                    ['ID' => 3, 'NAME' => 'Backend', 'PARENT' => 2, 'SORT' => 300, 'UF_HEAD' => 30],
+                ], 'total' => 3],
+            'user.get' => static fn (array $params): array => [
+                'result' => [['ID' => (int) $params['filter']['ID'], 'NAME' => 'User']],
+            ],
+        ]);
+
+        $chain = $this->service($client)->managementChainOf(3);
+
+        self::assertSame([30, 20, 10], $chain->pluck('id')->all());
+    }
+
+    public function test_team_builds_a_cross_entity_view(): void
+    {
+        $team = $this->service($this->client())->team(2);
+
+        self::assertSame(2, $team->department->id);
+        self::assertSame(20, $team->head?->id);
+        self::assertSame([20], array_map(static fn ($user): int => $user->id, $team->heads));
+        self::assertSame([10], array_map(static fn ($user): int => $user->id, $team->members));
+        self::assertSame([3], array_map(static fn ($department): int => $department->id, $team->children));
+        self::assertSame([1, 2], array_map(static fn ($department): int => $department->id, $team->path));
+    }
+
     private function client(): FakeClient
     {
         return new FakeClient([

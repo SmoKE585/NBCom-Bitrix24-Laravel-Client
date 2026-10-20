@@ -3,6 +3,18 @@
 Все заметные изменения пакета. Формат — [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),
 версии — [SemVer](https://semver.org/lang/ru/).
 
+## [1.1.0] — 2026-10-20
+
+### Added
+
+- `users()->colleaguesOf()` — коллеги по подразделению с исключением текущего пользователя.
+- `departments()->headsOf()` — руководители подразделения и вложенных.
+- `departments()->managementChainOf()` — цепочка руководителей вверх до корня.
+- `departments()->team()` и DTO `DepartmentTeam` — карточка подразделения одним вызовом.
+- `departments()->getOrFail()` и `departments()->search()`.
+- Минимальная длина поиска — 2 символа для пользователей и подразделений.
+- Требование `ext-mbstring`.
+
 ## [1.0.0] — 2026-10-20
 
 ### Added

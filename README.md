@@ -15,8 +15,10 @@
 
 ## Возможности
 
-- Пользователи: по ID, email, логину, поиск, сотрудники подразделения.
-- Оргструктура: подразделения, дерево, дети, предки, путь, руководитель.
+- Пользователи: по ID, email, логину, поиск, сотрудники подразделения, коллеги.
+- Оргструктура: подразделения, дерево, дети, предки, путь, руководители.
+- Кодовый сахар: `colleaguesOf()`, `headsOf()`, `managementChainOf()`, `team()`.
+- Поиск по пользователям и подразделениям от 2 символов.
 - Уведомления: системные, личные, сообщения в личный чат.
 - Массовая отправка с отчётом об успехах и ошибках.
 - Проверка scopes и методов через `scope` + `method.get`, с fallback на `methods`.
@@ -146,6 +148,50 @@ $report = Bitrix24::notifications()->toDepartment(
 $report->successCount();
 $report->failureCount();
 ```
+
+---
+
+## Кодовый сахар
+
+Короткие методы для типичных перекрёстных задач. Внутри может быть несколько
+HTTP-запросов, но чтения кэшируются, а наружу приходит готовый DTO.
+
+```php
+use Nbcom\Bitrix24\Facades\Bitrix24;
+
+$me = Bitrix24::me();
+
+// Все коллеги по подразделению, кроме текущего пользователя
+$colleagues = Bitrix24::users()->colleaguesOf(
+    departmentId: 15,
+    excludeUserId: $me->id,
+    includeNested: true,
+);
+
+// Руководитель подразделения + руководители всех вложенных
+$heads = Bitrix24::departments()->headsOf(15);
+
+// Цепочка руководителей вверх: отдел → дивизион → компания
+$chain = Bitrix24::departments()->managementChainOf(15);
+
+// Карточка подразделения одним вызовом
+$team = Bitrix24::departments()->team(15, includeNested: true);
+
+$team->department;  // DepartmentData
+$team->head;        // ?UserData
+$team->heads;       // list<UserData>
+$team->members;     // list<UserData>
+$team->children;    // list<DepartmentData>
+$team->path;        // list<DepartmentData>
+$team->memberCount();
+
+// Поиск от 2 символов
+$users = Bitrix24::users()->search('Иван');
+$departments = Bitrix24::departments()->search('ИТ');
+```
+
+Запрос короче 2 символов возвращает пустую коллекцию без обращения к Bitrix.
+Подробнее — в [docs/convenience.md](docs/convenience.md).
 
 ---
 

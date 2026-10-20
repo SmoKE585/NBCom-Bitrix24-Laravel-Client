@@ -137,16 +137,21 @@ Bitrix24::users()->findByEmail(string $email): ?UserData
 Bitrix24::users()->findByLogin(string $login): ?UserData
 Bitrix24::users()->search(string $query, int $limit = 50, ?UserFilter $filter = null): Collection
 Bitrix24::users()->inDepartment(int $departmentId, bool $includeNested = false, ?UserFilter $filter = null, bool $fresh = false): Collection
+Bitrix24::users()->colleaguesOf(int $departmentId, ?int $excludeUserId = null, bool $includeNested = false, ?UserFilter $filter = null, bool $fresh = false): Collection
 Bitrix24::users()->all(?UserFilter $filter = null): LazyCollection
 Bitrix24::users()->current(bool $fresh = false): UserData
 Bitrix24::users()->exists(int $id): bool
 Bitrix24::users()->fresh(): UserService
 ```
 
+`search()` ищет от 2 символов; более короткий запрос возвращает пустую коллекцию
+без обращения к Bitrix.
+
 ### Подразделения
 
 ```php
 Bitrix24::departments()->get(int $id, bool $fresh = false): ?DepartmentData
+Bitrix24::departments()->getOrFail(int $id, bool $fresh = false): DepartmentData
 Bitrix24::departments()->all(bool $fresh = false): Collection
 Bitrix24::departments()->tree(bool $refresh = false): DepartmentTree
 Bitrix24::departments()->childrenOf(int $id): Collection
@@ -154,10 +159,16 @@ Bitrix24::departments()->descendantsOf(int $id): Collection
 Bitrix24::departments()->pathTo(int $id): array
 Bitrix24::departments()->root(): ?DepartmentData
 Bitrix24::departments()->findByName(string $name, bool $fresh = false): ?DepartmentData
+Bitrix24::departments()->search(string $query, int $limit = 50, bool $fresh = false): Collection
 Bitrix24::departments()->headOf(int $departmentId, bool $fresh = false): ?UserData
+Bitrix24::departments()->headsOf(int $departmentId, bool $includeNested = true, bool $fresh = false): Collection
+Bitrix24::departments()->managementChainOf(int $departmentId, bool $fresh = false): Collection
+Bitrix24::departments()->team(int $departmentId, bool $includeNested = false, bool $withMembers = true, bool $fresh = false): DepartmentTeam
 Bitrix24::departments()->members(int $departmentId, bool $includeNested = false, ?UserFilter $filter = null, bool $fresh = false): Collection
 Bitrix24::departments()->fresh(): DepartmentService
 ```
+
+`search()` по подразделениям — частичный, без учёта регистра, от 2 символов.
 
 ### Уведомления
 
@@ -248,6 +259,18 @@ Bitrix24::call(string $method, array $params = []): mixed // крайний сл
 
 `all()`, `get()`, `roots()`, `childrenOf()`, `descendantsOf()`, `pathTo()`, `toArray()`.
 
+### DepartmentTeam
+
+Карточка подразделения одним вызовом `departments()->team()`:
+
+- `department` — `DepartmentData`;
+- `head` — `?UserData`;
+- `heads` — `list<UserData>`;
+- `members` — `list<UserData>`;
+- `children` — `list<DepartmentData>`;
+- `path` — `list<DepartmentData>`;
+- `memberCount()`.
+
 ### NotificationReport
 
 `total`, `sent` (`list<NotificationReceipt>`), `failed` (`list<NotificationFailure>`),
@@ -306,6 +329,54 @@ foreach ($employees as $employee) {
 $filter = UserFilter::make()->includeInactive();
 Bitrix24::users()->inDepartment(15, true, $filter);
 ```
+
+### Коллеги по подразделению
+
+```php
+$me = Bitrix24::me();
+
+$colleagues = Bitrix24::users()->colleaguesOf(
+    departmentId: 15,
+    excludeUserId: $me->id,
+    includeNested: true,
+);
+```
+
+Это обёртка над `inDepartment()`: возвращает активных сотрудников и убирает
+текущего пользователя.
+
+### Все руководители и карточка подразделения
+
+```php
+// Руководитель подразделения + руководители вложенных
+$heads = Bitrix24::departments()->headsOf(15);
+
+// Цепочка вверх: отдел → дивизион → компания
+$chain = Bitrix24::departments()->managementChainOf(15);
+
+// Один вызов — вся карточка
+$team = Bitrix24::departments()->team(15, includeNested: true);
+
+$team->department;
+$team->head;
+$team->heads;
+$team->members;
+$team->children;
+$team->path;
+```
+
+`headsOf()` дедуплицирует людей: один руководитель нескольких подразделений
+попадёт в результат один раз.
+
+### Поиск
+
+```php
+$users = Bitrix24::users()->search('Иван');
+$departments = Bitrix24::departments()->search('ИТ');
+```
+
+Оба поиска требуют минимум 2 символа. Более короткий запрос вернёт пустую
+коллекцию, не обращаясь к Bitrix.
 
 ### Дерево и хлебные крошки
 

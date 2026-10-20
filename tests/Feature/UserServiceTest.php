@@ -103,6 +103,31 @@ final class UserServiceTest extends TestCase
         self::assertSame([1, 2], $call['params']['filter']['@UF_DEPARTMENT']);
     }
 
+    public function test_search_requires_at_least_two_characters(): void
+    {
+        $client = new FakeClient;
+        $users = $this->users($client, TestCache::disabled());
+
+        self::assertCount(0, $users->search('a'));
+        self::assertCount(0, $client->calls);
+    }
+
+    public function test_colleagues_exclude_the_current_user(): void
+    {
+        $client = new FakeClient([
+            'user.get' => static fn (array $params): array => ['result' => [
+                ['ID' => 10, 'NAME' => 'Alice'],
+                ['ID' => 20, 'NAME' => 'Bob'],
+            ]],
+        ]);
+        $users = $this->users($client, TestCache::disabled());
+
+        $colleagues = $users->colleaguesOf(2, excludeUserId: 10);
+
+        self::assertCount(1, $colleagues);
+        self::assertSame(20, $colleagues->first()?->id);
+    }
+
     public function test_current_user(): void
     {
         $client = new FakeClient([
